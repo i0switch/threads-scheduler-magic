@@ -32,42 +32,46 @@ export function AppSidebar() {
   const collapsed = state === "collapsed"
 
   return (
-    <Sidebar
-      className={collapsed ? "w-14" : "w-64"}
-      collapsible="icon"
-    >
-      <SidebarContent className="bg-gradient-card">
-        <div className="p-6 border-b border-border">
+    <Sidebar className="border-r border-border/50 bg-card/30 backdrop-blur-sm">
+      <SidebarContent>
+        <div className="p-6 border-b border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-white" />
+            <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+              <Calendar className="w-5 h-5 text-white" />
             </div>
-            {!collapsed && (
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Threads Scheduler</h2>
-                <p className="text-xs text-muted-foreground">予約投稿管理</p>
-              </div>
-            )}
+            <div>
+              <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Threads Scheduler
+              </h2>
+              <p className="text-xs text-muted-foreground">予約投稿管理</p>
+            </div>
           </div>
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>メニュー</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className={getNavCls}>
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <div className="p-4">
+          <p className="text-xs font-medium text-muted-foreground mb-4 px-3">メニュー</p>
+          <nav className="space-y-2">
+            {items.map((item) => {
+              const isItemActive = isActive(item.url)
+              return (
+                <NavLink
+                  key={item.title}
+                  to={item.url}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${
+                    isItemActive
+                      ? "bg-gradient-primary text-white shadow-elegant"
+                      : "text-foreground hover:bg-accent/50 hover:shadow-card"
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                    isItemActive ? "text-white" : "text-muted-foreground"
+                  }`} />
+                  <span className="font-medium">{item.title}</span>
+                </NavLink>
+              )
+            })}
+          </nav>
+        </div>
       </SidebarContent>
     </Sidebar>
   )
