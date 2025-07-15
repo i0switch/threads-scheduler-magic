@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { Upload, Calendar, Clock, Plus, X, Image as ImageIcon } from "lucide-react"
+import { Upload, Calendar, Clock, Plus, X, Image as ImageIcon, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Link } from "react-router-dom"
 
 // Mock accounts data
 const accounts = [
@@ -63,14 +64,22 @@ export default function NewPost() {
   const isFormValid = postContent.trim() && selectedAccount && scheduledDate && scheduledTime
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6 animate-fade-in">
       <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">新規投稿</h1>
-          <p className="text-muted-foreground">Threadsへの投稿を予約できます</p>
+        <div className="flex items-center gap-4">
+          <Link to="/">
+            <Button variant="ghost" size="sm" className="hover-scale">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              戻る
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">新規投稿</h1>
+            <p className="text-muted-foreground">Threadsへの投稿を予約できます</p>
+          </div>
         </div>
 
-        <Card className="shadow-card">
+        <Card className="shadow-card hover:shadow-elegant transition-all duration-300 animate-scale-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-primary" />
@@ -121,22 +130,22 @@ export default function NewPost() {
                 <div className="space-y-4">
                   {images.length > 0 && (
                     <div className="grid grid-cols-2 gap-4">
-                      {images.map((image, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={image}
-                            alt={`Upload ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                       {images.map((image, index) => (
+                         <div key={index} className="relative group animate-fade-in">
+                           <img
+                             src={image}
+                             alt={`Upload ${index + 1}`}
+                             className="w-full h-32 object-cover rounded-lg border hover-scale transition-transform"
+                           />
+                           <button
+                             type="button"
+                             onClick={() => removeImage(index)}
+                             className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover-scale"
+                           >
+                             <X className="w-4 h-4" />
+                           </button>
+                         </div>
+                       ))}
                     </div>
                   )}
                   

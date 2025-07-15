@@ -1,9 +1,10 @@
 import { useState } from "react"
-import { Plus, Trash2, User, ExternalLink, Shield } from "lucide-react"
+import { Plus, Trash2, User, ExternalLink, Shield, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Link } from "react-router-dom"
 
 // Mock accounts data
 const mockAccounts = [
@@ -46,12 +47,20 @@ export default function AccountManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6 animate-fade-in">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">アカウント管理</h1>
-            <p className="text-muted-foreground">Threadsアカウントの追加・削除ができます</p>
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="sm" className="hover-scale">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                戻る
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">アカウント管理</h1>
+              <p className="text-muted-foreground">Threadsアカウントの追加・削除ができます</p>
+            </div>
           </div>
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -101,22 +110,26 @@ export default function AccountManagement() {
         </div>
 
         <div className="grid gap-4">
-          {accounts.map((account) => (
-            <Card key={account.id} className="shadow-card hover:shadow-elegant transition-all duration-300">
+          {accounts.map((account, index) => (
+            <Card 
+              key={account.id} 
+              className="shadow-card hover:shadow-elegant transition-all duration-300 hover-scale animate-fade-in"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <img
                       src={account.profileImage}
                       alt={account.username}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-border"
+                      className="w-12 h-12 rounded-full object-cover border-2 border-border hover-scale cursor-pointer"
                     />
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-foreground">{account.username}</h3>
                         <Badge 
                           variant="secondary" 
-                          className="bg-green-100 text-green-700 text-xs"
+                          className="bg-green-100 text-green-700 text-xs animate-scale-in"
                         >
                           連携済み
                         </Badge>
@@ -133,7 +146,7 @@ export default function AccountManagement() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDisconnectAccount(account.id)}
-                    className="hover:bg-destructive/10 hover:text-destructive"
+                    className="hover:bg-destructive/10 hover:text-destructive hover-scale"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -144,8 +157,8 @@ export default function AccountManagement() {
         </div>
 
         {accounts.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-12 animate-fade-in">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 animate-scale-in">
               <User className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">アカウントがありません</h3>
@@ -154,7 +167,7 @@ export default function AccountManagement() {
             </p>
             <Button 
               onClick={() => setIsAddDialogOpen(true)} 
-              className="bg-gradient-primary hover:opacity-90"
+              className="bg-gradient-primary hover:opacity-90 hover-scale"
             >
               <Plus className="w-4 h-4 mr-2" />
               アカウントを追加
@@ -162,7 +175,7 @@ export default function AccountManagement() {
           </div>
         )}
 
-        <Card className="bg-gradient-card border-primary/20">
+        <Card className="bg-gradient-card border-primary/20 animate-fade-in">
           <CardHeader>
             <CardTitle className="text-sm text-primary">セキュリティについて</CardTitle>
           </CardHeader>
