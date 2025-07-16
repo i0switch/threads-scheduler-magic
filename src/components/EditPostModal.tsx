@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Upload, Calendar, Clock, X, Image as ImageIcon, Edit } from "lucide-react"
+import { Upload, Calendar, Clock, X, Image as ImageIcon, Edit, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,59 +7,120 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
 
 interface Post {
   id: string
   content: string
-  scheduledDate: string
-  scheduledTime: string
-  account: string
+  scheduled_for: string | null
+  persona_id: string | null
   status: string
-  images: string[]
+  images: string[] | null
+  personas?: {
+    name: string
+  }
+}
+
+interface Persona {
+  id: string
+  name: string
+  threads_username: string | null
 }
 
 interface EditPostModalProps {
   post: Post | null
   isOpen: boolean
   onClose: () => void
-  onSave: (updatedPost: Post) => void
+  onSave: (updatedPost: Post) => Promise<void>
 }
-
-const accounts = [
-  { id: "1", username: "@user_account1", displayName: "メインアカウント" },
-  { id: "2", username: "@user_account2", displayName: "サブアカウント" }
-]
 
 export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalProps) {
   const [postContent, setPostContent] = useState("")
-  const [selectedAccount, setSelectedAccount] = useState("")
+  const [selectedPersona, setSelectedPersona] = useState("")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
   const [images, setImages] = useState<string[]>([])
+  const [personas, setPersonas] = useState<Persona[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fetchingPersonas, setFetchingPersonas] = useState(true)
+  const { user } = useAuth()
+  const { toast } = useToast()
+
+  const fetchPersonas = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('id, name, threads_username')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if (error) throw error
+      setPersonas(data || [])
+    } catch (error) {
+      console.error('Error fetching personas:', error)
+    } finally {
+      setFetchingPersonas(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user && isOpen) {
+      fetchPersonas()
+    }
+  }, [user, isOpen])
 
   useEffect(() => {
     if (post) {
       setPostContent(post.content)
-      setSelectedAccount(post.account)
-      setScheduledDate(post.scheduledDate)
-      setScheduledTime(post.scheduledTime)
-      setImages(post.images)
+      setSelectedPersona(post.persona_id || "")
+      setImages(post.images || [])
+      
+      if (post.scheduled_for) {
+        const date = new Date(post.scheduled_for)
+        setScheduledDate(date.toISOString().split('T')[0])
+        setScheduledTime(date.toTimeString().split(' ')[0].slice(0, 5))
+      } else {
+        setScheduledDate("")
+        setScheduledTime("")
+      }
     }
   }, [post])
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
-    if (files && images.length < 4) {
-      const newImages = Array.from(files).slice(0, 4 - images.length)
-      newImages.forEach(file => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setImages(prev => [...prev, e.target!.result as string])
-          }
-        }
-        reader.readAsDataURL(file)
-      })
+    if (!files || !user) return
+
+    const newFiles = Array.from(files).slice(0, 4 - images.length)
+    
+    for (const file of newFiles) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('persona-avatars')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage
+          .from('persona-avatars')
+          .getPublicUrl(filePath)
+
+        setImages(prev => [...prev, data.publicUrl])
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          title: "エラー",
+          description: "画像のアップロードに失敗しました",
+          variant: "destructive"
+        })
+      }
     }
   }
 
@@ -67,24 +128,46 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
     setImages(images.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!post) return
     
-    const updatedPost: Post = {
-      ...post,
-      content: postContent,
-      account: selectedAccount,
-      scheduledDate,
-      scheduledTime,
-      images
-    }
+    setLoading(true)
     
-    onSave(updatedPost)
-    onClose()
+    try {
+      const scheduledDateTime = scheduledDate && scheduledTime 
+        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+        : null
+
+      const updatedPost: Post = {
+        ...post,
+        content: postContent,
+        persona_id: selectedPersona || null,
+        scheduled_for: scheduledDateTime,
+        images: images.length > 0 ? images : null,
+        status: scheduledDateTime ? 'scheduled' : 'draft'
+      }
+      
+      await onSave(updatedPost)
+      onClose()
+      
+      toast({
+        title: "更新完了",
+        description: "投稿が更新されました",
+      })
+    } catch (error) {
+      console.error('Error updating post:', error)
+      toast({
+        title: "エラー",
+        description: "投稿の更新に失敗しました",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const isFormValid = postContent.trim() && selectedAccount && scheduledDate && scheduledTime
+  const isFormValid = postContent.trim() && selectedPersona
 
   if (!post) return null
 
@@ -101,22 +184,35 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Account Selection */}
           <div className="space-y-2">
-            <Label htmlFor="account">投稿アカウント</Label>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-              <SelectTrigger>
-                <SelectValue placeholder="アカウントを選択してください" />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts.map(account => (
-                  <SelectItem key={account.id} value={account.username}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{account.username}</span>
-                      <span className="text-xs text-muted-foreground">{account.displayName}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="persona">投稿アカウント</Label>
+            {fetchingPersonas ? (
+              <div className="flex items-center gap-2 p-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">アカウントを読み込み中...</span>
+              </div>
+            ) : personas.length === 0 ? (
+              <div className="p-4 border rounded-lg text-center">
+                <p className="text-sm text-muted-foreground">アカウントが登録されていません</p>
+              </div>
+            ) : (
+              <Select value={selectedPersona} onValueChange={setSelectedPersona}>
+                <SelectTrigger>
+                  <SelectValue placeholder="アカウントを選択してください" />
+                </SelectTrigger>
+                <SelectContent>
+                  {personas.map(persona => (
+                    <SelectItem key={persona.id} value={persona.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{persona.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {persona.threads_username || "Threads未連携"}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Post Content */}
@@ -229,8 +325,9 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-primary hover:opacity-90"
-              disabled={!isFormValid}
+              disabled={!isFormValid || loading}
             >
+              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Upload className="w-4 h-4 mr-2" />
               変更を保存
             </Button>

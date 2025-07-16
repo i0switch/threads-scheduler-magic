@@ -1,49 +1,140 @@
-import { useState } from "react"
-import { Plus, Trash2, User, ExternalLink, Shield, ArrowLeft } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Trash2, User, ExternalLink, Shield, ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
 
-// Mock accounts data
-const mockAccounts = [
-  {
-    id: "1",
-    username: "@user_account1",
-    displayName: "メインアカウント",
-    profileImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-    isConnected: true,
-    followerCount: "1.2K",
-    connectedAt: "2024-01-15"
-  },
-  {
-    id: "2", 
-    username: "@user_account2",
-    displayName: "サブアカウント",
-    profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
-    isConnected: true,
-    followerCount: "856",
-    connectedAt: "2024-02-20"
-  }
-]
+interface Persona {
+  id: string
+  name: string
+  threads_username: string | null
+  is_active: boolean
+  created_at: string
+  avatar_url: string | null
+  threads_access_token: string | null
+}
 
 export default function AccountManagement() {
-  const [accounts, setAccounts] = useState(mockAccounts)
+  const [personas, setPersonas] = useState<Persona[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newPersonaName, setNewPersonaName] = useState("")
+  const [newPersonaUsername, setNewPersonaUsername] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const { user } = useAuth()
+  const { toast } = useToast()
 
-  const handleConnectAccount = () => {
-    // TODO: Implement OAuth flow for Threads
-    console.log("Starting OAuth flow...")
-    alert("Threads OAuth認証を開始します（実装予定）")
-    setIsAddDialogOpen(false)
+  const fetchPersonas = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setPersonas(data || [])
+    } catch (error) {
+      console.error('Error fetching personas:', error)
+      toast({
+        title: "エラー",
+        description: "アカウント情報の取得に失敗しました",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDisconnectAccount = (accountId: string) => {
-    const confirmed = window.confirm("このアカウントの連携を解除しますか？")
-    if (confirmed) {
-      setAccounts(accounts.filter(account => account.id !== accountId))
+  useEffect(() => {
+    if (user) {
+      fetchPersonas()
     }
+  }, [user])
+
+  const handleCreatePersona = async () => {
+    if (!user || !newPersonaName.trim()) return
+    
+    setCreating(true)
+    
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .insert({
+          user_id: user.id,
+          name: newPersonaName.trim(),
+          threads_username: newPersonaUsername.trim() || null,
+          is_active: true
+        })
+
+      if (error) throw error
+      
+      toast({
+        title: "アカウント作成完了",
+        description: "新しいアカウントが作成されました",
+      })
+      
+      setNewPersonaName("")
+      setNewPersonaUsername("")
+      setIsAddDialogOpen(false)
+      fetchPersonas()
+    } catch (error) {
+      console.error('Error creating persona:', error)
+      toast({
+        title: "エラー",
+        description: "アカウントの作成に失敗しました",
+        variant: "destructive"
+      })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDeletePersona = async (personaId: string) => {
+    const confirmed = window.confirm("このアカウントを削除しますか？")
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', personaId)
+
+      if (error) throw error
+      
+      setPersonas(personas.filter(persona => persona.id !== personaId))
+      toast({
+        title: "削除完了",
+        description: "アカウントが削除されました",
+      })
+    } catch (error) {
+      console.error('Error deleting persona:', error)
+      toast({
+        title: "エラー",
+        description: "アカウントの削除に失敗しました",
+        variant: "destructive"
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">アカウントを読み込み中...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -72,37 +163,37 @@ export default function AccountManagement() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Threadsアカウントを追加</DialogTitle>
+                <DialogTitle>新しいアカウントを追加</DialogTitle>
               </DialogHeader>
-              <div className="space-y-6 py-4">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto">
-                    <Shield className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">安全な認証</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Threads公式のOAuth認証を使用してアカウントを安全に連携します
-                    </p>
-                  </div>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="personaName">アカウント名</Label>
+                  <Input
+                    id="personaName"
+                    placeholder="例: メインアカウント"
+                    value={newPersonaName}
+                    onChange={(e) => setNewPersonaName(e.target.value)}
+                  />
                 </div>
                 
-                <div className="bg-muted p-4 rounded-lg space-y-2">
-                  <h4 className="font-medium text-sm">認証プロセス:</h4>
-                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Threadsの認証ページにリダイレクト</li>
-                    <li>アカウントでログイン</li>
-                    <li>アプリケーションへのアクセスを許可</li>
-                    <li>自動的にこのアプリに戻る</li>
-                  </ol>
+                <div className="space-y-2">
+                  <Label htmlFor="threadsUsername">Threadsユーザー名（オプション）</Label>
+                  <Input
+                    id="threadsUsername"
+                    placeholder="例: @username"
+                    value={newPersonaUsername}
+                    onChange={(e) => setNewPersonaUsername(e.target.value)}
+                  />
                 </div>
                 
                 <Button 
-                  onClick={handleConnectAccount} 
+                  onClick={handleCreatePersona}
                   className="w-full bg-gradient-primary hover:opacity-90"
+                  disabled={!newPersonaName.trim() || creating}
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Threadsで認証する
+                  {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Plus className="w-4 h-4 mr-2" />
+                  アカウントを作成
                 </Button>
               </div>
             </DialogContent>
@@ -110,34 +201,34 @@ export default function AccountManagement() {
         </div>
 
         <div className="grid gap-4">
-          {accounts.map((account, index) => (
+          {personas.map((persona, index) => (
             <Card 
-              key={account.id} 
+              key={persona.id} 
               className="shadow-card hover:shadow-elegant transition-all duration-300 hover-scale animate-fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <img
-                      src={account.profileImage}
-                      alt={account.username}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-border hover-scale cursor-pointer"
-                    />
+                    <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-foreground">{account.username}</h3>
+                        <h3 className="font-semibold text-foreground">{persona.name}</h3>
                         <Badge 
-                          variant="secondary" 
-                          className="bg-green-100 text-green-700 text-xs animate-scale-in"
+                          variant={persona.is_active ? "default" : "secondary"}
+                          className={persona.is_active ? "bg-green-100 text-green-700" : ""}
                         >
-                          連携済み
+                          {persona.is_active ? "アクティブ" : "非アクティブ"}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{account.displayName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {persona.threads_username || "Threads未連携"}
+                      </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>フォロワー: {account.followerCount}</span>
-                        <span>連携日: {account.connectedAt}</span>
+                        <span>作成日: {new Date(persona.created_at).toLocaleDateString('ja-JP')}</span>
+                        <span>状態: {persona.threads_access_token ? "連携済み" : "未連携"}</span>
                       </div>
                     </div>
                   </div>
@@ -145,7 +236,7 @@ export default function AccountManagement() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDisconnectAccount(account.id)}
+                    onClick={() => handleDeletePersona(persona.id)}
                     className="hover:bg-destructive/10 hover:text-destructive hover-scale"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -156,14 +247,14 @@ export default function AccountManagement() {
           ))}
         </div>
 
-        {accounts.length === 0 && (
+        {personas.length === 0 && (
           <div className="text-center py-12 animate-fade-in">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 animate-scale-in">
               <User className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">アカウントがありません</h3>
             <p className="text-muted-foreground mb-4">
-              Threadsアカウントを追加して投稿管理を始めましょう
+              アカウントを追加して投稿管理を始めましょう
             </p>
             <Button 
               onClick={() => setIsAddDialogOpen(true)} 
@@ -177,12 +268,12 @@ export default function AccountManagement() {
 
         <Card className="bg-gradient-card border-primary/20 animate-fade-in">
           <CardHeader>
-            <CardTitle className="text-sm text-primary">セキュリティについて</CardTitle>
+            <CardTitle className="text-sm text-primary">使い方</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>• アカウント情報は暗号化されて安全に保存されます</p>
-            <p>• いつでもアカウントの連携を解除できます</p>
-            <p>• パスワードは保存されず、OAuth認証のみを使用します</p>
+            <p>• アカウントを作成後、投稿ページで選択できます</p>
+            <p>• Threads連携は今後のアップデートで追加予定です</p>
+            <p>• 不要になったアカウントはいつでも削除できます</p>
           </CardContent>
         </Card>
       </div>
