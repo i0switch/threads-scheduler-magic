@@ -1,61 +1,92 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditPostModal } from "@/components/EditPostModal"
 import { Link } from "react-router-dom"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2 } from "lucide-react"
 
 interface Post {
   id: string
   content: string
-  scheduledDate: string
-  scheduledTime: string
-  account: string
+  scheduled_for: string | null
+  persona_id: string | null
   status: string
-  images: string[]
-}
-
-// Mock data for demonstration
-const mockPosts = [
-  {
-    id: "1",
-    content: "今日の朝食は美味しいパンケーキを作りました！レシピも近日公開予定です 🥞",
-    scheduledDate: "Jul 26, 2024",
-    scheduledTime: "10:00 AM",
-    account: "Account 1",
-    status: "scheduled",
-    images: ["https://images.unsplash.com/photo-1506084868230-bb9d95c24759?w=300&h=300&fit=crop"]
-  },
-  {
-    id: "2", 
-    content: "新しいプロジェクトについての投稿です。詳細は後ほど...",
-    scheduledDate: "Jul 27, 2024",
-    scheduledTime: "2:00 PM",
-    account: "Account 2", 
-    status: "scheduled",
-    images: ["https://images.unsplash.com/photo-1502691876148-a84978e59af8?w=300&h=300&fit=crop"]
-  },
-  {
-    id: "3",
-    content: "週末の写真撮影の様子をシェアします📸",
-    scheduledDate: "Jul 28, 2024",
-    scheduledTime: "4:00 PM",
-    account: "Account 1",
-    status: "posted",
-    images: ["https://images.unsplash.com/photo-1471666875520-c75081f42081?w=300&h=300&fit=crop"]
+  images: string[] | null
+  personas?: {
+    name: string
   }
-]
-
-const accounts = ["All Accounts", "Account 1", "Account 2"]
+}
 
 export default function PostManagement() {
   const [selectedAccount, setSelectedAccount] = useState("All Accounts")
-  const [posts, setPosts] = useState(mockPosts)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [accounts, setAccounts] = useState<string[]>(["All Accounts"])
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  const { toast } = useToast()
+
+  const fetchPosts = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          personas (
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setPosts(data || [])
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+      toast({
+        title: "エラー",
+        description: "投稿の取得に失敗しました",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAccounts = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('name')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if (error) throw error
+      const accountNames = ["All Accounts", ...(data?.map(p => p.name) || [])]
+      setAccounts(accountNames)
+    } catch (error) {
+      console.error('Error fetching accounts:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchPosts()
+      fetchAccounts()
+    }
+  }, [user])
 
   const filteredPosts = selectedAccount === "All Accounts" 
     ? posts 
-    : posts.filter(post => post.account === selectedAccount)
+    : posts.filter(post => post.personas?.name === selectedAccount)
 
   const handleEdit = (postId: string) => {
     const post = posts.find(p => p.id === postId)
@@ -65,17 +96,82 @@ export default function PostManagement() {
     }
   }
 
-  const handleSaveEdit = (updatedPost: Post) => {
-    setPosts(posts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
-    ))
+  const handleSaveEdit = async (updatedPost: Post) => {
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({
+          content: updatedPost.content,
+          scheduled_for: updatedPost.scheduled_for,
+          images: updatedPost.images,
+        })
+        .eq('id', updatedPost.id)
+
+      if (error) throw error
+      
+      setPosts(posts.map(post => 
+        post.id === updatedPost.id ? { ...post, ...updatedPost } : post
+      ))
+      
+      toast({
+        title: "更新完了",
+        description: "投稿が更新されました",
+      })
+    } catch (error) {
+      console.error('Error updating post:', error)
+      toast({
+        title: "エラー",
+        description: "投稿の更新に失敗しました",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleDelete = (postId: string) => {
+  const handleDelete = async (postId: string) => {
     const confirmed = window.confirm("この投稿を削除しますか？")
-    if (confirmed) {
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId)
+
+      if (error) throw error
+      
       setPosts(posts.filter(post => post.id !== postId))
+      toast({
+        title: "削除完了",
+        description: "投稿が削除されました",
+      })
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      toast({
+        title: "エラー",
+        description: "投稿の削除に失敗しました",
+        variant: "destructive"
+      })
     }
+  }
+
+  const formatDateTime = (dateTime: string | null) => {
+    if (!dateTime) return { date: '', time: '' }
+    const date = new Date(dateTime)
+    return {
+      date: date.toLocaleDateString('ja-JP'),
+      time: date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">投稿を読み込み中...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -125,7 +221,7 @@ export default function PostManagement() {
               onClick={() => handleEdit(post.id)}
             >
               <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
-                {post.images.length > 0 ? (
+                {post.images && post.images.length > 0 ? (
                   <img
                     src={post.images[0]}
                     alt="Post"
@@ -142,7 +238,13 @@ export default function PostManagement() {
                   {post.content.length > 30 ? post.content.substring(0, 30) + "..." : post.content}
                 </p>
                 <p className="text-muted-foreground text-sm font-normal leading-normal line-clamp-1">
-                  {post.scheduledDate} · {post.scheduledTime}
+                  {(() => {
+                    const { date, time } = formatDateTime(post.scheduled_for)
+                    return date && time ? `${date} · ${time}` : post.status
+                  })()}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {post.personas?.name || 'アカウントなし'} · {post.status}
                 </p>
               </div>
             </div>

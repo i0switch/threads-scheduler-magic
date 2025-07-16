@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, Calendar, Clock, Plus, X, Image as ImageIcon, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,34 +6,92 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2 } from "lucide-react"
 
-// Mock accounts data
-const accounts = [
-  { id: "1", username: "@user_account1", displayName: "メインアカウント" },
-  { id: "2", username: "@user_account2", displayName: "サブアカウント" }
-]
+interface Persona {
+  id: string
+  name: string
+  threads_username: string | null
+}
 
 export default function NewPost() {
   const [postContent, setPostContent] = useState("")
-  const [selectedAccount, setSelectedAccount] = useState("")
+  const [selectedPersona, setSelectedPersona] = useState("")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
   const [images, setImages] = useState<string[]>([])
+  const [personas, setPersonas] = useState<Persona[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fetchingPersonas, setFetchingPersonas] = useState(true)
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (files && images.length < 4) {
-      const newImages = Array.from(files).slice(0, 4 - images.length)
-      newImages.forEach(file => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setImages(prev => [...prev, e.target!.result as string])
-          }
-        }
-        reader.readAsDataURL(file)
+  const fetchPersonas = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('id, name, threads_username')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if (error) throw error
+      setPersonas(data || [])
+    } catch (error) {
+      console.error('Error fetching personas:', error)
+      toast({
+        title: "エラー",
+        description: "アカウント情報の取得に失敗しました",
+        variant: "destructive"
       })
+    } finally {
+      setFetchingPersonas(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchPersonas()
+    }
+  }, [user])
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || !user) return
+
+    const newFiles = Array.from(files).slice(0, 4 - images.length)
+    
+    for (const file of newFiles) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('persona-avatars')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage
+          .from('persona-avatars')
+          .getPublicUrl(filePath)
+
+        setImages(prev => [...prev, data.publicUrl])
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          title: "エラー",
+          description: "画像のアップロードに失敗しました",
+          variant: "destructive"
+        })
+      }
     }
   }
 
@@ -41,27 +99,57 @@ export default function NewPost() {
     setImages(images.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement post scheduling logic
-    console.log({
-      content: postContent,
-      account: selectedAccount,
-      date: scheduledDate,
-      time: scheduledTime,
-      images: images
-    })
-    alert("投稿が予約されました！")
+    if (!user) return
     
-    // Reset form
-    setPostContent("")
-    setSelectedAccount("")
-    setScheduledDate("")
-    setScheduledTime("")
-    setImages([])
+    setLoading(true)
+    
+    try {
+      const scheduledDateTime = scheduledDate && scheduledTime 
+        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+        : null
+
+      const { error } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          persona_id: selectedPersona || null,
+          content: postContent,
+          scheduled_for: scheduledDateTime,
+          images: images.length > 0 ? images : null,
+          status: scheduledDateTime ? 'scheduled' : 'draft',
+        })
+
+      if (error) throw error
+      
+      toast({
+        title: "投稿作成完了",
+        description: scheduledDateTime ? "投稿が予約されました！" : "下書きが保存されました！",
+      })
+      
+      // Reset form
+      setPostContent("")
+      setSelectedPersona("")
+      setScheduledDate("")
+      setScheduledTime("")
+      setImages([])
+      
+      // Navigate back to posts
+      navigate("/")
+    } catch (error) {
+      console.error('Error creating post:', error)
+      toast({
+        title: "エラー",
+        description: "投稿の作成に失敗しました",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const isFormValid = postContent.trim() && selectedAccount && scheduledDate && scheduledTime
+  const isFormValid = postContent.trim() && selectedPersona
 
   return (
     <div className="min-h-screen bg-background p-6 animate-fade-in">
@@ -90,22 +178,40 @@ export default function NewPost() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Account Selection */}
               <div className="space-y-2">
-                <Label htmlFor="account">投稿アカウント</Label>
-                <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="アカウントを選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map(account => (
-                      <SelectItem key={account.id} value={account.username}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{account.username}</span>
-                          <span className="text-xs text-muted-foreground">{account.displayName}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="persona">投稿アカウント</Label>
+                {fetchingPersonas ? (
+                  <div className="flex items-center gap-2 p-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">アカウントを読み込み中...</span>
+                  </div>
+                ) : personas.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">アカウントが登録されていません</p>
+                    <Link to="/accounts">
+                      <Button variant="outline" size="sm">
+                        アカウントを追加
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <Select value={selectedPersona} onValueChange={setSelectedPersona}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="アカウントを選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {personas.map(persona => (
+                        <SelectItem key={persona.id} value={persona.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{persona.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {persona.threads_username || "Threads未連携"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Post Content */}
@@ -210,10 +316,11 @@ export default function NewPost() {
                 <Button 
                   type="submit" 
                   className="flex-1 bg-gradient-primary hover:opacity-90"
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || loading}
                 >
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   <Upload className="w-4 h-4 mr-2" />
-                  投稿を予約する
+                  {scheduledDate && scheduledTime ? "投稿を予約する" : "下書きを保存"}
                 </Button>
               </div>
             </form>
