@@ -68,7 +68,22 @@ export default function Auth() {
       }
     } catch (error: any) {
       console.error("Auth error:", error)
-      setError(error.message || "認証エラーが発生しました")
+      
+      // Handle specific error cases
+      if (error.message === "User already registered" || error.code === "user_already_exists") {
+        setError("このメールアドレスは既に登録済みです。ログインしてください。")
+        // Auto-switch to login mode after showing error
+        setTimeout(() => {
+          setIsLogin(true)
+          setError("")
+        }, 3000)
+      } else if (error.message === "Invalid login credentials") {
+        setError("メールアドレスまたはパスワードが正しくありません。")
+      } else if (error.message === "Email not confirmed") {
+        setError("メールアドレスの確認が完了していません。メールをご確認ください。")
+      } else {
+        setError(error.message || "認証エラーが発生しました")
+      }
     } finally {
       setLoading(false)
     }
