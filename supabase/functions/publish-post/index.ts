@@ -39,117 +39,80 @@ serve(async (req) => {
 
     console.log(`Publishing post ${postId} to Threads...`)
 
-    // Prepare media containers for images
-    let mediaContainers: string[] = []
-    
-    if (images && images.length > 0) {
-      console.log(`Processing ${images.length} images`)
-      
-      for (let i = 0; i < images.length; i++) {
-        const imageUrl = images[i]
-        console.log(`Creating media container ${i + 1}/${images.length} for image: ${imageUrl}`)
-        
-        try {
-          const mediaRequestBody: any = {
-            media_type: 'IMAGE',
-            image_url: imageUrl,
-            access_token: accessToken,
-          }
-
-          // Add text to the first image only
-          if (i === 0 && content) {
-            mediaRequestBody.text = content
-          }
-
-          const mediaResponse = await fetch('https://graph.threads.net/v1.0/me/threads', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(mediaRequestBody),
-          })
-
-          console.log(`Media response status: ${mediaResponse.status}`)
-          const responseText = await mediaResponse.text()
-          console.log(`Media response body: ${responseText}`)
-
-          if (!mediaResponse.ok) {
-            console.error(`Failed to create media container ${i + 1}: ${mediaResponse.status} ${responseText}`)
-            throw new Error(`Failed to create media container ${i + 1}: ${mediaResponse.status} ${responseText}`)
-          }
-
-          const mediaData = JSON.parse(responseText)
-          console.log(`Media container ${i + 1} created successfully:`, mediaData)
-          
-          if (!mediaData.id) {
-            throw new Error(`Media container ${i + 1} created but no ID returned`)
-          }
-          
-          mediaContainers.push(mediaData.id)
-        } catch (error) {
-          console.error(`Error creating media container ${i + 1}:`, error)
-          throw error
-        }
-      }
-      
-      console.log(`Successfully created ${mediaContainers.length} media containers:`, mediaContainers)
-    }
-
-    // Create the main post
+    // Create container
     const postData: any = {
-      access_token: accessToken,
+      text: content,
     }
 
-    // Add media containers if any
-    if (mediaContainers.length > 0) {
-      postData.media_type = 'CAROUSEL'
-      postData.children = mediaContainers
+    // Add image if present
+    if (images && images.length > 0) {
+      if (images.length === 1) {
+        // Single image
+        postData.media_type = 'IMAGE'
+        postData.image_url = images[0]
+      } else {
+        // Multiple images not supported in simple way, fall back to text only
+        console.log('Multiple images detected, falling back to text-only post')
+        postData.media_type = 'TEXT'
+      }
     } else {
-      // Text only post
+      // Text only
       postData.media_type = 'TEXT'
-      postData.text = content
     }
 
-    console.log('Creating Threads post with data:', postData)
-
-    const createResponse = await fetch('https://graph.threads.net/v1.0/me/threads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(postData),
+    console.log('Creating Threads container with data:', {
+      ...postData,
+      text: postData.text?.substring(0, 50) + '...'
     })
 
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text()
-      console.error(`Failed to create post: ${createResponse.status} ${errorText}`)
-      throw new Error(`Failed to create post: ${createResponse.status} ${errorText}`)
-    }
-
-    const createData = await createResponse.json()
-    const creationId = createData.id
-
-    console.log(`Post created with ID: ${creationId}`)
-
-    // Publish the post
-    const publishResponse = await fetch(`https://graph.threads.net/v1.0/${creationId}/publish`, {
+    // Step 1: Create container
+    const createResponse = await fetch('https://graph.threads.net/me/threads', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
+        ...postData,
         access_token: accessToken,
       }),
     })
 
-    if (!publishResponse.ok) {
-      const errorText = await publishResponse.text()
-      console.error(`Failed to publish post: ${publishResponse.status} ${errorText}`)
-      throw new Error(`Failed to publish post: ${publishResponse.status} ${errorText}`)
+    const createResult = await createResponse.json()
+    console.log('Container creation result:', createResult)
+
+    if (!createResponse.ok) {
+      console.error(`Failed to create container: ${createResponse.status}`, createResult)
+      throw new Error(`Failed to create container: ${createResponse.status} ${JSON.stringify(createResult)}`)
     }
 
-    const publishData = await publishResponse.json()
-    console.log(`Post published successfully: ${publishData.id}`)
+    if (!createResult.id) {
+      throw new Error('No creation ID returned from Threads API')
+    }
+
+    const creationId = createResult.id
+    console.log(`Container created with ID: ${creationId}`)
+
+    // Step 2: Publish container
+    const publishResponse = await fetch('https://graph.threads.net/me/threads_publish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        creation_id: creationId,
+        access_token: accessToken,
+      }),
+    })
+
+    const publishResult = await publishResponse.json()
+    console.log('Publish result:', publishResult)
+
+    if (!publishResponse.ok) {
+      console.error(`Failed to publish container: ${publishResponse.status}`, publishResult)
+      throw new Error(`Failed to publish container: ${publishResponse.status} ${JSON.stringify(publishResult)}`)
+    }
+
+    console.log(`Post published successfully: ${publishResult.id}`)
 
     // Update the post status in database
     const { error: updateError } = await supabaseClient
@@ -178,7 +141,7 @@ serve(async (req) => {
             user_id: user.id,
             action_type: 'post_published',
             description: `Post "${content.substring(0, 50)}..." published to Threads`,
-            metadata: { post_id: postId, threads_id: publishData.id }
+            metadata: { post_id: postId, threads_id: publishResult.id }
           })
       }
     }
@@ -186,7 +149,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        threadsId: publishData.id,
+        threadsId: publishResult.id,
         message: 'Post published successfully'
       }),
       { 
