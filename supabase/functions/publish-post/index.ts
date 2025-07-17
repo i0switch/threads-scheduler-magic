@@ -197,10 +197,17 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in publish-post function:', error)
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    })
     return new Response(
       JSON.stringify({ 
         error: error.message || 'Failed to publish post',
-        details: error.toString()
+        details: error.toString(),
+        errorType: error.name || 'UnknownError'
       }),
       { 
         status: 500, 

@@ -181,17 +181,63 @@ export default function PostManagement() {
         description: "投稿を公開しています...",
       })
 
+      // Test with images first, then without if it fails
+      let testData = {
+        postId: post.id,
+        content: post.content,
+        images: post.images,
+        accessToken: post.personas.threads_access_token
+      }
+
+      console.log('Attempting post with data:', { 
+        hasImages: !!post.images?.length, 
+        imageCount: post.images?.length || 0,
+        contentLength: post.content.length 
+      })
+
       const { data, error } = await supabase.functions.invoke('publish-post', {
-        body: {
-          postId: post.id,
-          content: post.content,
-          images: post.images,
-          accessToken: post.personas.threads_access_token
-        }
+        body: testData
       })
 
       if (error) {
         console.error('Instant post error:', error)
+        
+        // If image post failed, try without images
+        if (post.images && post.images.length > 0) {
+          console.log('Image post failed, trying text-only post...')
+          toast({
+            title: "画像投稿失敗",
+            description: "テキストのみで再試行中...",
+          })
+          
+          const { data: retryData, error: retryError } = await supabase.functions.invoke('publish-post', {
+            body: {
+              postId: post.id,
+              content: post.content,
+              images: [], // No images
+              accessToken: post.personas.threads_access_token
+            }
+          })
+          
+          if (retryError) {
+            throw retryError
+          }
+          
+          if (retryData?.success) {
+            toast({
+              title: "投稿完了（テキストのみ）",
+              description: "画像なしで投稿が公開されました",
+            })
+            
+            setPosts(posts.map(p => 
+              p.id === post.id 
+                ? { ...p, status: 'published', published_at: new Date().toISOString() }
+                : p
+            ))
+            return
+          }
+        }
+        
         toast({
           title: "投稿失敗",
           description: `投稿の公開に失敗しました: ${error.message}`,
