@@ -10,6 +10,17 @@ import { Link } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface Persona {
   id: string
@@ -123,10 +134,98 @@ export default function AccountManagement() {
   }
 
   const handleDeletePersona = async (personaId: string) => {
-    const confirmed = window.confirm("このアカウントを削除しますか？")
-    if (!confirmed) return
-
     try {
+      // Delete related records first to avoid foreign key constraint violations
+      
+      // Delete thread replies
+      const { error: threadRepliesError } = await supabase
+        .from('thread_replies')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (threadRepliesError) {
+        console.error('Error deleting thread replies:', threadRepliesError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete auto replies
+      const { error: autoRepliesError } = await supabase
+        .from('auto_replies')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (autoRepliesError) {
+        console.error('Error deleting auto replies:', autoRepliesError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete posts
+      const { error: postsError } = await supabase
+        .from('posts')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (postsError) {
+        console.error('Error deleting posts:', postsError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete analytics
+      const { error: analyticsError } = await supabase
+        .from('analytics')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (analyticsError) {
+        console.error('Error deleting analytics:', analyticsError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete activity logs
+      const { error: activityLogsError } = await supabase
+        .from('activity_logs')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (activityLogsError) {
+        console.error('Error deleting activity logs:', activityLogsError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete webhook settings
+      const { error: webhookError } = await supabase
+        .from('webhook_settings')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (webhookError) {
+        console.error('Error deleting webhook settings:', webhookError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete reply check settings
+      const { error: replyCheckError } = await supabase
+        .from('reply_check_settings')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (replyCheckError) {
+        console.error('Error deleting reply check settings:', replyCheckError)
+        // Continue with deletion even if this fails
+      }
+
+      // Delete scheduling settings
+      const { error: schedulingError } = await supabase
+        .from('scheduling_settings')
+        .delete()
+        .eq('persona_id', personaId)
+
+      if (schedulingError) {
+        console.error('Error deleting scheduling settings:', schedulingError)
+        // Continue with deletion even if this fails
+      }
+
+      // Finally delete the persona
       const { error } = await supabase
         .from('personas')
         .delete()
@@ -268,14 +367,34 @@ export default function AccountManagement() {
                         連携
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeletePersona(persona.id)}
-                      className="hover:bg-destructive/10 hover:text-destructive hover-scale"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="hover:bg-destructive/10 hover:text-destructive hover-scale"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>アカウントを削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            この操作は取り消せません。アカウントと関連するすべてのデータ（投稿、返信、設定など）が完全に削除されます。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeletePersona(persona.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            削除
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>
