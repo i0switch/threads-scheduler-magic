@@ -39,58 +39,160 @@ serve(async (req) => {
 
     console.log(`Publishing post ${postId} to Threads...`)
 
-    // Create container
-    const postData: any = {
-      text: content,
-    }
+    let creationId: string
 
-    // Add image if present
+    // Handle different media types
     if (images && images.length > 0) {
       if (images.length === 1) {
         // Single image
-        postData.media_type = 'IMAGE'
-        postData.image_url = images[0]
+        console.log('Creating single image post')
+        const postData = {
+          text: content,
+          media_type: 'IMAGE',
+          image_url: images[0],
+          access_token: accessToken,
+        }
+
+        console.log('Creating Threads container with data:', {
+          ...postData,
+          text: postData.text?.substring(0, 50) + '...',
+          access_token: '[REDACTED]'
+        })
+
+        const createResponse = await fetch('https://graph.threads.net/me/threads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams(postData),
+        })
+
+        const createResult = await createResponse.json()
+        console.log('Container creation result:', createResult)
+
+        if (!createResponse.ok) {
+          console.error(`Failed to create container: ${createResponse.status}`, createResult)
+          throw new Error(`Failed to create container: ${createResponse.status} ${JSON.stringify(createResult)}`)
+        }
+
+        if (!createResult.id) {
+          throw new Error('No creation ID returned from Threads API')
+        }
+
+        creationId = createResult.id
+        console.log(`Container created with ID: ${creationId}`)
       } else {
-        // Multiple images not supported in simple way, fall back to text only
-        console.log('Multiple images detected, falling back to text-only post')
-        postData.media_type = 'TEXT'
+        // Multiple images - create carousel
+        console.log(`Creating carousel post with ${images.length} images`)
+        
+        // First, create child containers for each image
+        const childIds: string[] = []
+        for (let i = 0; i < images.length; i++) {
+          const imageUrl = images[i]
+          console.log(`Creating child container ${i + 1}/${images.length}`)
+          
+          const childResponse = await fetch('https://graph.threads.net/me/threads', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              media_type: 'IMAGE',
+              image_url: imageUrl,
+              access_token: accessToken,
+            }),
+          })
+
+          const childResult = await childResponse.json()
+          console.log(`Child container ${i + 1} result:`, childResult)
+
+          if (!childResponse.ok) {
+            console.error(`Failed to create child container ${i + 1}: ${childResponse.status}`, childResult)
+            throw new Error(`Failed to create child container ${i + 1}: ${childResponse.status} ${JSON.stringify(childResult)}`)
+          }
+
+          if (!childResult.id) {
+            throw new Error(`No creation ID returned for child container ${i + 1}`)
+          }
+
+          childIds.push(childResult.id)
+        }
+
+        // Create main carousel container
+        const carouselData = {
+          text: content,
+          media_type: 'CAROUSEL',
+          children: childIds.join(','),
+          access_token: accessToken,
+        }
+
+        console.log('Creating carousel container with data:', {
+          ...carouselData,
+          text: carouselData.text?.substring(0, 50) + '...',
+          access_token: '[REDACTED]'
+        })
+
+        const createResponse = await fetch('https://graph.threads.net/me/threads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams(carouselData),
+        })
+
+        const createResult = await createResponse.json()
+        console.log('Carousel container creation result:', createResult)
+
+        if (!createResponse.ok) {
+          console.error(`Failed to create carousel container: ${createResponse.status}`, createResult)
+          throw new Error(`Failed to create carousel container: ${createResponse.status} ${JSON.stringify(createResult)}`)
+        }
+
+        if (!createResult.id) {
+          throw new Error('No creation ID returned from Threads API')
+        }
+
+        creationId = createResult.id
+        console.log(`Carousel container created with ID: ${creationId}`)
       }
     } else {
       // Text only
-      postData.media_type = 'TEXT'
-    }
-
-    console.log('Creating Threads container with data:', {
-      ...postData,
-      text: postData.text?.substring(0, 50) + '...'
-    })
-
-    // Step 1: Create container
-    const createResponse = await fetch('https://graph.threads.net/me/threads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        ...postData,
+      console.log('Creating text-only post')
+      const postData = {
+        text: content,
+        media_type: 'TEXT',
         access_token: accessToken,
-      }),
-    })
+      }
 
-    const createResult = await createResponse.json()
-    console.log('Container creation result:', createResult)
+      console.log('Creating Threads container with data:', {
+        ...postData,
+        text: postData.text?.substring(0, 50) + '...',
+        access_token: '[REDACTED]'
+      })
 
-    if (!createResponse.ok) {
-      console.error(`Failed to create container: ${createResponse.status}`, createResult)
-      throw new Error(`Failed to create container: ${createResponse.status} ${JSON.stringify(createResult)}`)
+      const createResponse = await fetch('https://graph.threads.net/me/threads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(postData),
+      })
+
+      const createResult = await createResponse.json()
+      console.log('Container creation result:', createResult)
+
+      if (!createResponse.ok) {
+        console.error(`Failed to create container: ${createResponse.status}`, createResult)
+        throw new Error(`Failed to create container: ${createResponse.status} ${JSON.stringify(createResult)}`)
+      }
+
+      if (!createResult.id) {
+        throw new Error('No creation ID returned from Threads API')
+      }
+
+      creationId = createResult.id
+      console.log(`Container created with ID: ${creationId}`)
     }
-
-    if (!createResult.id) {
-      throw new Error('No creation ID returned from Threads API')
-    }
-
-    const creationId = createResult.id
-    console.log(`Container created with ID: ${creationId}`)
 
     // Step 2: Publish container
     const publishResponse = await fetch('https://graph.threads.net/me/threads_publish', {
