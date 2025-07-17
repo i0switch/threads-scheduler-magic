@@ -20,35 +20,49 @@ serve(async (req) => {
 
   try {
     console.log('=== Threads OAuth Request Started ===')
+    console.log('Request method:', req.method)
+    console.log('Request URL:', req.url)
     
+    const url = new URL(req.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state') // This should be the persona ID
+    const error = url.searchParams.get('error')
+
+    console.log('URL parameters:', { 
+      code: code ? `${code.substring(0, 10)}...` : null, 
+      state, 
+      error 
+    })
+
+    if (error) {
+      console.error('OAuth error from URL:', error)
+      // Redirect to frontend with error
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${error}`, 302)
+    }
+
+    if (!code || !state) {
+      console.error('Missing required URL parameters:', { code: !!code, state: !!state })
+      // Redirect to frontend with error
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=missing_parameters`, 302)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { personaId, authCode }: OAuthRequest = await req.json()
-    console.log(`Received request - Persona ID: ${personaId}, Auth Code length: ${authCode?.length || 0}`)
-
-    if (!personaId || !authCode) {
-      console.error('Missing required fields:', { personaId: !!personaId, authCode: !!authCode })
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log(`Processing OAuth for persona ${personaId}`)
+    console.log(`Processing OAuth for persona ${state}`)
 
     // Get persona details
     const { data: persona, error: personaError } = await supabaseClient
       .from('personas')
       .select('*')
-      .eq('id', personaId)
+      .eq('id', state)
       .single()
 
     if (personaError || !persona) {
       console.error('Persona fetch error:', personaError)
-      throw new Error('Persona not found')
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=persona_not_found`, 302)
     }
 
     console.log(`Found persona: ${persona.name}`)
@@ -66,11 +80,12 @@ serve(async (req) => {
     })
 
     if (!threadsAppId || !threadsAppSecret || !supabaseUrl) {
-      throw new Error('Missing required environment variables for Threads API')
+      console.error('Missing required environment variables for Threads API')
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=missing_env_variables`, 302)
     }
 
-    // Construct redirect URI
-    const redirectUri = `${supabaseUrl.replace('//', '//').replace(/\/$/, '')}/functions/v1/threads-oauth-callback`
+    // Use the correct redirect URI that matches what we sent in the authorization URL
+    const redirectUri = `${supabaseUrl}/functions/v1/threads-oauth`
     console.log(`Using redirect URI: ${redirectUri}`)
 
     // Exchange authorization code for access token
@@ -79,14 +94,14 @@ serve(async (req) => {
       'client_secret': threadsAppSecret,
       'grant_type': 'authorization_code',
       'redirect_uri': redirectUri,
-      'code': authCode
+      'code': code
     })
 
     console.log('Token exchange request params:', {
       client_id: threadsAppId,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
-      code_length: authCode.length
+      code_length: code.length
     })
 
     const tokenResponse = await fetch('https://graph.threads.net/oauth/access_token', {
@@ -107,7 +122,8 @@ serve(async (req) => {
         statusText: tokenResponse.statusText,
         error: tokenData
       })
-      throw new Error(tokenData.error_description || tokenData.error?.message || 'Failed to exchange authorization code')
+      const errorMessage = tokenData.error_description || tokenData.error?.message || 'Failed to exchange authorization code'
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
     }
 
     console.log('Token exchange successful, access token received')
@@ -128,7 +144,8 @@ serve(async (req) => {
         statusText: userResponse.statusText,
         error: userData
       })
-      throw new Error(userData.error?.message || 'Failed to fetch user information')
+      const errorMessage = userData.error?.message || 'Failed to fetch user information'
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
     }
 
     console.log(`Successfully fetched user info for @${userData.username}`)
@@ -141,38 +158,31 @@ serve(async (req) => {
         threads_username: userData.username,
         is_active: true
       })
-      .eq('id', personaId)
+      .eq('id', state)
 
     if (updateError) {
       console.error('Persona update error:', updateError)
-      throw updateError
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=database_update_failed&state=${state}`, 302)
     }
 
-    console.log(`Successfully connected persona ${personaId} to Threads user @${userData.username}`)
+    console.log(`Successfully connected persona ${state} to Threads user @${userData.username}`)
 
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        username: userData.username,
-        name: userData.name
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    // Redirect to success page
+    return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?code=${code}&state=${state}`, 302)
 
   } catch (error) {
     console.error('=== Error in threads-oauth ===')
     console.error('Error details:', error)
     console.error('Error message:', error.message)
     console.error('Error stack:', error.stack)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    
+    // Extract state from URL if possible for redirect
+    try {
+      const url = new URL(req.url)
+      const state = url.searchParams.get('state')
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(error.message)}&state=${state || ''}`, 302)
+    } catch {
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(error.message)}`, 302)
+    }
   }
 })

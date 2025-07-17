@@ -123,14 +123,19 @@ export default function AccountManagement() {
       return
     }
     
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`)
+    // Fix the redirect URI to point to the correct endpoint
+    const supabaseUrl = "https://tqcgbsnoiarnawnppwia.supabase.co"
+    const redirectUri = encodeURIComponent(`${supabaseUrl}/functions/v1/threads-oauth`)
     const scope = "threads_basic,threads_content_publish"
     
     // Create OAuth URL
     const oauthUrl = `https://threads.net/oauth/authorize?client_id=${data.threads_app_id}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${personaId}`
     
-    // Open in new window or redirect
-    window.open(oauthUrl, '_blank', 'width=600,height=700')
+    console.log('OAuth URL:', oauthUrl)
+    console.log('Redirect URI:', redirectUri)
+    
+    // Redirect to the OAuth URL in the same window
+    window.location.href = oauthUrl
   }
 
   const handleDeletePersona = async (personaId: string) => {
