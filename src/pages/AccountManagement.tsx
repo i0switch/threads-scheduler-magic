@@ -157,12 +157,17 @@ export default function AccountManagement() {
         fullOAuthUrl: oauthUrl
       })
       
-      // Add a small delay to ensure console logs are visible
-      setTimeout(() => {
-        console.log('Redirecting to Threads OAuth...')
-        // Redirect to the OAuth URL in the same window
+      // Force navigation in the top window to avoid iframe issues
+      console.log('Navigating to Threads OAuth...')
+      
+      // Try multiple methods to ensure we break out of any iframe
+      if (window.top && window.top !== window) {
+        // We're in an iframe, break out to the top window
+        window.top.location.href = oauthUrl
+      } else {
+        // We're already in the top window
         window.location.href = oauthUrl
-      }, 100)
+      }
       
     } catch (error) {
       console.error('Error in handleConnectThreads:', error)
