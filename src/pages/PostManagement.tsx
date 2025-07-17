@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditPostModal } from "@/components/EditPostModal"
 import { Link } from "react-router-dom"
@@ -29,6 +29,7 @@ interface Post {
   images: string[] | null
   personas?: {
     name: string
+    threads_access_token: string | null
   }
 }
 
@@ -51,7 +52,8 @@ export default function PostManagement() {
         .select(`
           *,
           personas (
-            name
+            name,
+            threads_access_token
           )
         `)
         .eq('user_id', user.id)
@@ -163,6 +165,70 @@ export default function PostManagement() {
     }
   }
 
+  const handleInstantPost = async (post: Post) => {
+    if (!post.personas?.threads_access_token) {
+      toast({
+        title: "エラー",
+        description: "このアカウントのThreadsアクセストークンが見つかりません",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      toast({
+        title: "投稿中",
+        description: "投稿を公開しています...",
+      })
+
+      const { data, error } = await supabase.functions.invoke('publish-post', {
+        body: {
+          postId: post.id,
+          content: post.content,
+          images: post.images,
+          accessToken: post.personas.threads_access_token
+        }
+      })
+
+      if (error) {
+        console.error('Instant post error:', error)
+        toast({
+          title: "投稿失敗",
+          description: "投稿の公開に失敗しました",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data.success) {
+        toast({
+          title: "投稿完了",
+          description: "投稿が正常に公開されました",
+        })
+        
+        // Update the post status locally
+        setPosts(posts.map(p => 
+          p.id === post.id 
+            ? { ...p, status: 'published', published_at: new Date().toISOString() }
+            : p
+        ))
+      } else {
+        toast({
+          title: "投稿失敗",
+          description: data.error || "投稿の公開に失敗しました",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error in instant post:', error)
+      toast({
+        title: "エラー",
+        description: "投稿処理中にエラーが発生しました",
+        variant: "destructive"
+      })
+    }
+  }
+
   const formatDateTime = (dateTime: string | null) => {
     if (!dateTime) return { date: '', time: '' }
     const date = new Date(dateTime)
@@ -256,6 +322,17 @@ export default function PostManagement() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {post.status !== 'published' && post.personas?.threads_access_token && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleInstantPost(post)}
+                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                    title="即時投稿"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
