@@ -185,6 +185,52 @@ export default function AccountManagement() {
     }
   }
 
+  const handleTestConnection = async (personaId: string) => {
+    try {
+      toast({
+        title: "接続テスト開始",
+        description: "Threads API接続をテストしています...",
+      })
+
+      const { data, error } = await supabase.functions.invoke('get-threads-profile', {
+        body: { personaId }
+      })
+
+      if (error) {
+        console.error('Test connection error:', error)
+        toast({
+          title: "接続テスト失敗",
+          description: "Threads APIとの接続に失敗しました",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data.success) {
+        toast({
+          title: "接続テスト成功",
+          description: data.message || "Threads APIとの接続が正常に動作しています",
+        })
+        
+        // Refresh personas to get updated profile info
+        fetchPersonas()
+      } else {
+        toast({
+          title: "接続テスト失敗",
+          description: data.error || "接続テストに失敗しました",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error testing connection:', error)
+      toast({
+        title: "エラー",
+        description: "接続テスト中にエラーが発生しました",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDeletePersona = async (personaId: string) => {
     try {
       // Delete related records first to avoid foreign key constraint violations
@@ -408,7 +454,17 @@ export default function AccountManagement() {
                   </div>
                   
                   <div className="flex gap-2">
-                    {!persona.threads_access_token && (
+                    {persona.threads_access_token ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestConnection(persona.id)}
+                        className="hover-scale"
+                      >
+                        <Shield className="w-4 h-4 mr-1" />
+                        テスト
+                      </Button>
+                    ) : (
                       <Button
                         variant="outline"
                         size="sm"
