@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2, Send } from "lucide-react"
+import { Plus, Edit, Trash2, Send, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditPostModal } from "@/components/EditPostModal"
 import { Link } from "react-router-dom"
@@ -278,6 +278,58 @@ export default function PostManagement() {
     }
   }
 
+  const handleTestConnection = async (personaId: string | null) => {
+    if (!personaId) {
+      toast({
+        title: "エラー",
+        description: "ペルソナIDが見つかりません",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      toast({
+        title: "接続テスト開始",
+        description: "Threads API接続をテストしています...",
+      })
+
+      const { data, error } = await supabase.functions.invoke('get-threads-profile', {
+        body: { personaId }
+      })
+
+      if (error) {
+        console.error('Test connection error:', error)
+        toast({
+          title: "接続テスト失敗",
+          description: "Threads APIとの接続に失敗しました",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data.success) {
+        toast({
+          title: "接続テスト成功",
+          description: data.message || "Threads APIとの接続が正常に動作しています",
+        })
+      } else {
+        toast({
+          title: "接続テスト失敗",
+          description: data.error || "接続テストに失敗しました",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error testing connection:', error)
+      toast({
+        title: "エラー",
+        description: "接続テスト中にエラーが発生しました",
+        variant: "destructive"
+      })
+    }
+  }
+
   const formatDateTime = (dateTime: string | null) => {
     if (!dateTime) return { date: '', time: '' }
     const date = new Date(dateTime)
@@ -372,15 +424,26 @@ export default function PostManagement() {
               </div>
               <div className="flex items-center gap-2">
                 {post.status !== 'published' && post.personas?.threads_access_token && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleInstantPost(post)}
-                    className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
-                    title="即時投稿"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTestConnection(post.persona_id)}
+                      className="h-8 w-8 p-0 hover:bg-blue/10 hover:text-blue"
+                      title="接続テスト"
+                    >
+                      <Shield className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleInstantPost(post)}
+                      className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                      title="即時投稿"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="ghost"
