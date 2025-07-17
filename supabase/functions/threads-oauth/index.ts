@@ -177,8 +177,8 @@ serve(async (req) => {
 
     console.log(`Successfully connected persona ${state} to Threads user @${userData.username}`)
 
-    // Redirect to success page
-    return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?code=${code}&state=${state}`, 302)
+    // Redirect to accounts page with success message
+    return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/accounts?success=true&message=${encodeURIComponent(`Successfully connected to @${userData.username}`)}&persona_id=${state}`, 302)
 
   } catch (error) {
     console.error('=== Error in threads-oauth ===')
