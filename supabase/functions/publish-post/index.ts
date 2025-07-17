@@ -27,7 +27,10 @@ serve(async (req) => {
 
     const { postId, content, images, accessToken }: PostRequest = await req.json()
 
+    console.log('Received request:', { postId, content: content?.substring(0, 50), hasImages: !!images?.length, hasAccessToken: !!accessToken })
+
     if (!postId || !content || !accessToken) {
+      console.error('Missing required fields:', { postId: !!postId, content: !!content, accessToken: !!accessToken })
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -57,8 +60,8 @@ serve(async (req) => {
 
         if (!mediaResponse.ok) {
           const errorText = await mediaResponse.text()
-          console.error(`Failed to create media container: ${errorText}`)
-          throw new Error(`Failed to create media container: ${errorText}`)
+          console.error(`Failed to create media container: ${mediaResponse.status} ${errorText}`)
+          throw new Error(`Failed to create media container: ${mediaResponse.status} ${errorText}`)
         }
 
         const mediaData = await mediaResponse.json()
@@ -91,8 +94,8 @@ serve(async (req) => {
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text()
-      console.error(`Failed to create post: ${errorText}`)
-      throw new Error(`Failed to create post: ${errorText}`)
+      console.error(`Failed to create post: ${createResponse.status} ${errorText}`)
+      throw new Error(`Failed to create post: ${createResponse.status} ${errorText}`)
     }
 
     const createData = await createResponse.json()
@@ -113,8 +116,8 @@ serve(async (req) => {
 
     if (!publishResponse.ok) {
       const errorText = await publishResponse.text()
-      console.error(`Failed to publish post: ${errorText}`)
-      throw new Error(`Failed to publish post: ${errorText}`)
+      console.error(`Failed to publish post: ${publishResponse.status} ${errorText}`)
+      throw new Error(`Failed to publish post: ${publishResponse.status} ${errorText}`)
     }
 
     const publishData = await publishResponse.json()
@@ -131,7 +134,7 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Failed to update post status:', updateError)
-      throw updateError
+      // Don't throw error here - post was published successfully
     }
 
     // Log activity

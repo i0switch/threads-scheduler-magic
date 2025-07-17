@@ -194,7 +194,7 @@ export default function PostManagement() {
         console.error('Instant post error:', error)
         toast({
           title: "投稿失敗",
-          description: "投稿の公開に失敗しました",
+          description: `投稿の公開に失敗しました: ${error.message}`,
           variant: "destructive"
         })
         return
@@ -213,17 +213,20 @@ export default function PostManagement() {
             : p
         ))
       } else {
+        const errorMsg = data?.error || "不明なエラー"
+        console.error('Publish failed:', data)
         toast({
           title: "投稿失敗",
-          description: data.error || "投稿の公開に失敗しました",
+          description: `投稿の公開に失敗しました: ${errorMsg}`,
           variant: "destructive"
         })
       }
     } catch (error) {
       console.error('Error in instant post:', error)
+      const errorMsg = error instanceof Error ? error.message : "不明なエラー"
       toast({
         title: "エラー",
-        description: "投稿処理中にエラーが発生しました",
+        description: `投稿処理中にエラーが発生しました: ${errorMsg}`,
         variant: "destructive"
       })
     }
