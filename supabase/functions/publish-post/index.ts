@@ -43,36 +43,60 @@ serve(async (req) => {
     let mediaContainers: string[] = []
     
     if (images && images.length > 0) {
-      for (const imageUrl of images) {
-        console.log(`Creating media container for image: ${imageUrl}`)
+      console.log(`Processing ${images.length} images`)
+      
+      for (let i = 0; i < images.length; i++) {
+        const imageUrl = images[i]
+        console.log(`Creating media container ${i + 1}/${images.length} for image: ${imageUrl}`)
         
-        const mediaResponse = await fetch('https://graph.threads.net/v1.0/me/threads', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        try {
+          const mediaRequestBody: any = {
             media_type: 'IMAGE',
             image_url: imageUrl,
             access_token: accessToken,
-          }),
-        })
+          }
 
-        if (!mediaResponse.ok) {
-          const errorText = await mediaResponse.text()
-          console.error(`Failed to create media container: ${mediaResponse.status} ${errorText}`)
-          throw new Error(`Failed to create media container: ${mediaResponse.status} ${errorText}`)
+          // Add text to the first image only
+          if (i === 0 && content) {
+            mediaRequestBody.text = content
+          }
+
+          const mediaResponse = await fetch('https://graph.threads.net/v1.0/me/threads', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(mediaRequestBody),
+          })
+
+          console.log(`Media response status: ${mediaResponse.status}`)
+          const responseText = await mediaResponse.text()
+          console.log(`Media response body: ${responseText}`)
+
+          if (!mediaResponse.ok) {
+            console.error(`Failed to create media container ${i + 1}: ${mediaResponse.status} ${responseText}`)
+            throw new Error(`Failed to create media container ${i + 1}: ${mediaResponse.status} ${responseText}`)
+          }
+
+          const mediaData = JSON.parse(responseText)
+          console.log(`Media container ${i + 1} created successfully:`, mediaData)
+          
+          if (!mediaData.id) {
+            throw new Error(`Media container ${i + 1} created but no ID returned`)
+          }
+          
+          mediaContainers.push(mediaData.id)
+        } catch (error) {
+          console.error(`Error creating media container ${i + 1}:`, error)
+          throw error
         }
-
-        const mediaData = await mediaResponse.json()
-        mediaContainers.push(mediaData.id)
       }
+      
+      console.log(`Successfully created ${mediaContainers.length} media containers:`, mediaContainers)
     }
 
     // Create the main post
     const postData: any = {
-      media_type: 'TEXT',
-      text: content,
       access_token: accessToken,
     }
 
@@ -80,6 +104,10 @@ serve(async (req) => {
     if (mediaContainers.length > 0) {
       postData.media_type = 'CAROUSEL'
       postData.children = mediaContainers
+    } else {
+      // Text only post
+      postData.media_type = 'TEXT'
+      postData.text = content
     }
 
     console.log('Creating Threads post with data:', postData)
