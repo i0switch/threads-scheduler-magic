@@ -157,17 +157,23 @@ export default function AccountManagement() {
         fullOAuthUrl: oauthUrl
       })
       
-      // Force navigation in the top window to avoid iframe issues
-      console.log('Navigating to Threads OAuth...')
+      // Open OAuth URL in a new tab to avoid iframe restrictions
+      console.log('Opening Threads OAuth in new tab...')
+      const newWindow = window.open(oauthUrl, '_blank', 'noopener,noreferrer')
       
-      // Try multiple methods to ensure we break out of any iframe
-      if (window.top && window.top !== window) {
-        // We're in an iframe, break out to the top window
-        window.top.location.href = oauthUrl
-      } else {
-        // We're already in the top window
-        window.location.href = oauthUrl
+      if (!newWindow) {
+        toast({
+          title: "ポップアップブロック",
+          description: "ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。",
+          variant: "destructive"
+        })
+        return
       }
+      
+      toast({
+        title: "認証開始",
+        description: "新しいタブでThreads認証が開始されました。認証完了後、このページを更新してください。",
+      })
       
     } catch (error) {
       console.error('Error in handleConnectThreads:', error)
@@ -473,6 +479,8 @@ export default function AccountManagement() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>• アカウントを作成後、「連携」ボタンでThreadsと連携してください</p>
+            <p>• 新しいタブでThreads認証が開きます</p>
+            <p>• 認証完了後、このページを更新してください</p>
             <p>• 連携済みアカウントは投稿ページで選択できます</p>
             <p>• 不要になったアカウントはいつでも削除できます</p>
           </CardContent>
