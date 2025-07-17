@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react"
-import { Plus } from "lucide-react"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditPostModal } from "@/components/EditPostModal"
 import { Link } from "react-router-dom"
@@ -7,6 +8,17 @@ import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface Post {
   id: string
@@ -128,9 +140,6 @@ export default function PostManagement() {
   }
 
   const handleDelete = async (postId: string) => {
-    const confirmed = window.confirm("この投稿を削除しますか？")
-    if (!confirmed) return
-
     try {
       const { error } = await supabase
         .from('posts')
@@ -217,8 +226,7 @@ export default function PostManagement() {
           {filteredPosts.map((post) => (
             <div
               key={post.id}
-              className="flex items-center gap-4 bg-background px-4 min-h-[72px] py-2 border-b border-border/20 last:border-b-0 hover:bg-muted/20 transition-colors cursor-pointer"
-              onClick={() => handleEdit(post.id)}
+              className="flex items-center gap-4 bg-background px-4 min-h-[72px] py-2 border-b border-border/20 last:border-b-0 hover:bg-muted/20 transition-colors"
             >
               <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
                 {post.images && post.images.length > 0 ? (
@@ -246,6 +254,44 @@ export default function PostManagement() {
                 <p className="text-xs text-muted-foreground">
                   {post.personas?.name || 'アカウントなし'} · {post.status}
                 </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEdit(post.id)}
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>投稿を削除しますか？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        この操作は取り消せません。投稿が完全に削除されます。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(post.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        削除
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           ))}
