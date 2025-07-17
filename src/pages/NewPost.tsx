@@ -74,13 +74,13 @@ export default function NewPost() {
         const filePath = `${user.id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
-          .from('persona-avatars')
+          .from('post-images')
           .upload(filePath, file)
 
         if (uploadError) throw uploadError
 
         const { data } = supabase.storage
-          .from('persona-avatars')
+          .from('post-images')
           .getPublicUrl(filePath)
 
         setImages(prev => [...prev, data.publicUrl])
@@ -110,6 +110,32 @@ export default function NewPost() {
         ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
         : null
 
+      // If scheduled and persona has access token, publish immediately
+      // Otherwise just save as draft/scheduled
+      const shouldPublish = scheduledDateTime && selectedPersona
+      let publishError = null
+
+      if (shouldPublish) {
+        // Check if persona has access token
+        const { data: persona } = await supabase
+          .from('personas')
+          .select('threads_access_token')
+          .eq('id', selectedPersona)
+          .single()
+
+        if (persona?.threads_access_token) {
+          // Try to publish immediately via edge function
+          const { error: pubError } = await supabase.functions.invoke('publish-post', {
+            body: {
+              content: postContent,
+              images: images.length > 0 ? images : undefined,
+              accessToken: persona.threads_access_token
+            }
+          })
+          publishError = pubError
+        }
+      }
+
       const { error } = await supabase
         .from('posts')
         .insert({
@@ -118,7 +144,7 @@ export default function NewPost() {
           content: postContent,
           scheduled_for: scheduledDateTime,
           images: images.length > 0 ? images : null,
-          status: scheduledDateTime ? 'scheduled' : 'draft',
+          status: publishError ? 'failed' : (shouldPublish && !scheduledDateTime ? 'published' : (scheduledDateTime ? 'scheduled' : 'draft')),
         })
 
       if (error) throw error

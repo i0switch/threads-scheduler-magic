@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Plus, Trash2, User, ExternalLink, Shield, ArrowLeft, Loader2 } from "lucide-react"
+import { Plus, Trash2, User, ExternalLink, Shield, ArrowLeft, Loader2, Link as LinkIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -97,6 +97,29 @@ export default function AccountManagement() {
     } finally {
       setCreating(false)
     }
+  }
+
+  const handleConnectThreads = async (personaId: string) => {
+    // Get the Threads App ID from secrets via edge function
+    const { data, error } = await supabase.functions.invoke('get-app-config')
+    
+    if (error || !data?.threads_app_id) {
+      toast({
+        title: "設定エラー",
+        description: "Threads App IDが設定されていません",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`)
+    const scope = "threads_basic,threads_content_publish"
+    
+    // Create OAuth URL
+    const oauthUrl = `https://threads.net/oauth/authorize?client_id=${data.threads_app_id}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${personaId}`
+    
+    // Open in new window or redirect
+    window.open(oauthUrl, '_blank', 'width=600,height=700')
   }
 
   const handleDeletePersona = async (personaId: string) => {
@@ -233,14 +256,27 @@ export default function AccountManagement() {
                     </div>
                   </div>
                   
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeletePersona(persona.id)}
-                    className="hover:bg-destructive/10 hover:text-destructive hover-scale"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    {!persona.threads_access_token && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleConnectThreads(persona.id)}
+                        className="hover-scale"
+                      >
+                        <LinkIcon className="w-4 h-4 mr-1" />
+                        連携
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeletePersona(persona.id)}
+                      className="hover:bg-destructive/10 hover:text-destructive hover-scale"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -271,8 +307,8 @@ export default function AccountManagement() {
             <CardTitle className="text-sm text-primary">使い方</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>• アカウントを作成後、投稿ページで選択できます</p>
-            <p>• Threads連携は今後のアップデートで追加予定です</p>
+            <p>• アカウントを作成後、「連携」ボタンでThreadsと連携してください</p>
+            <p>• 連携済みアカウントは投稿ページで選択できます</p>
             <p>• 不要になったアカウントはいつでも削除できます</p>
           </CardContent>
         </Card>

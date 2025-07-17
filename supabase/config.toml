@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.analytics-sync]
 verify_jwt = false
+
+[functions.threads-oauth]
+verify_jwt = false
+
+[functions.get-threads-profile]
+verify_jwt = false
+
+[functions.get-app-config]
+verify_jwt = false
