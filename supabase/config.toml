@@ -1,1 +1,13 @@
 project_id = "tqcgbsnoiarnawnppwia"
+
+[functions.publish-post]
+verify_jwt = false
+
+[functions.ai-auto-reply]
+verify_jwt = false
+
+[functions.schedule-posts]
+verify_jwt = false
+
+[functions.analytics-sync]
+verify_jwt = false
