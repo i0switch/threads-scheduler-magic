@@ -15,6 +15,7 @@ interface OAuthRequest {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('=== CORS preflight request ===')
     return new Response(null, { headers: corsHeaders })
   }
 
@@ -22,6 +23,7 @@ serve(async (req) => {
     console.log('=== Threads OAuth Request Started ===')
     console.log('Request method:', req.method)
     console.log('Request URL:', req.url)
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
     
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
@@ -31,13 +33,16 @@ serve(async (req) => {
     console.log('URL parameters:', { 
       code: code ? `${code.substring(0, 10)}...` : null, 
       state, 
-      error 
+      error,
+      allParams: Object.fromEntries(url.searchParams.entries())
     })
 
     if (error) {
       console.error('OAuth error from URL:', error)
+      const errorDescription = url.searchParams.get('error_description')
+      console.error('Error description:', errorDescription)
       // Redirect to frontend with error
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${error}`, 302)
+      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${error}&error_description=${encodeURIComponent(errorDescription || '')}`, 302)
     }
 
     if (!code || !state) {
@@ -76,7 +81,8 @@ serve(async (req) => {
       hasAppId: !!threadsAppId,
       hasAppSecret: !!threadsAppSecret,
       hasSupabaseUrl: !!supabaseUrl,
-      appIdLength: threadsAppId?.length || 0
+      appIdLength: threadsAppId?.length || 0,
+      appId: threadsAppId ? `${threadsAppId.substring(0, 6)}...` : 'missing'
     })
 
     if (!threadsAppId || !threadsAppSecret || !supabaseUrl) {
@@ -101,8 +107,11 @@ serve(async (req) => {
       client_id: threadsAppId,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
-      code_length: code.length
+      code_length: code.length,
+      code_preview: `${code.substring(0, 20)}...`
     })
+
+    console.log('Making token exchange request to:', 'https://graph.threads.net/oauth/access_token')
 
     const tokenResponse = await fetch('https://graph.threads.net/oauth/access_token', {
       method: 'POST',
@@ -114,6 +123,7 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json()
     console.log('Token response status:', tokenResponse.status)
+    console.log('Token response headers:', Object.fromEntries(tokenResponse.headers.entries()))
     console.log('Token response data:', JSON.stringify(tokenData, null, 2))
 
     if (!tokenResponse.ok || tokenData.error) {
@@ -122,7 +132,7 @@ serve(async (req) => {
         statusText: tokenResponse.statusText,
         error: tokenData
       })
-      const errorMessage = tokenData.error_description || tokenData.error?.message || 'Failed to exchange authorization code'
+      const errorMessage = tokenData.error_description || tokenData.error?.message || tokenData.error || 'Failed to exchange authorization code'
       return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
     }
 

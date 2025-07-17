@@ -111,31 +111,67 @@ export default function AccountManagement() {
   }
 
   const handleConnectThreads = async (personaId: string) => {
-    // Get the Threads App ID from secrets via edge function
-    const { data, error } = await supabase.functions.invoke('get-app-config')
+    console.log('=== Starting Threads OAuth Process ===')
+    console.log('Persona ID:', personaId)
     
-    if (error || !data?.threads_app_id) {
+    try {
+      // Get the Threads App ID from secrets via edge function
+      console.log('Fetching app configuration...')
+      const { data, error } = await supabase.functions.invoke('get-app-config')
+      
+      if (error) {
+        console.error('App config error:', error)
+        toast({
+          title: "設定エラー",
+          description: "アプリ設定の取得に失敗しました",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      if (!data?.threads_app_id) {
+        console.error('No Threads App ID found in config:', data)
+        toast({
+          title: "設定エラー",
+          description: "Threads App IDが設定されていません",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      console.log('App config retrieved successfully, App ID:', data.threads_app_id)
+      
+      // Fix the redirect URI to point to the correct endpoint
+      const supabaseUrl = "https://tqcgbsnoiarnawnppwia.supabase.co"
+      const redirectUri = encodeURIComponent(`${supabaseUrl}/functions/v1/threads-oauth`)
+      const scope = "threads_basic,threads_content_publish"
+      
+      // Create OAuth URL
+      const oauthUrl = `https://threads.net/oauth/authorize?client_id=${data.threads_app_id}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${personaId}`
+      
+      console.log('OAuth configuration:', {
+        threadsAppId: data.threads_app_id,
+        redirectUri: decodeURIComponent(redirectUri),
+        scope,
+        personaId,
+        fullOAuthUrl: oauthUrl
+      })
+      
+      // Add a small delay to ensure console logs are visible
+      setTimeout(() => {
+        console.log('Redirecting to Threads OAuth...')
+        // Redirect to the OAuth URL in the same window
+        window.location.href = oauthUrl
+      }, 100)
+      
+    } catch (error) {
+      console.error('Error in handleConnectThreads:', error)
       toast({
-        title: "設定エラー",
-        description: "Threads App IDが設定されていません",
+        title: "エラー",
+        description: "連携処理中にエラーが発生しました",
         variant: "destructive"
       })
-      return
     }
-    
-    // Fix the redirect URI to point to the correct endpoint
-    const supabaseUrl = "https://tqcgbsnoiarnawnppwia.supabase.co"
-    const redirectUri = encodeURIComponent(`${supabaseUrl}/functions/v1/threads-oauth`)
-    const scope = "threads_basic,threads_content_publish"
-    
-    // Create OAuth URL
-    const oauthUrl = `https://threads.net/oauth/authorize?client_id=${data.threads_app_id}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${personaId}`
-    
-    console.log('OAuth URL:', oauthUrl)
-    console.log('Redirect URI:', redirectUri)
-    
-    // Redirect to the OAuth URL in the same window
-    window.location.href = oauthUrl
   }
 
   const handleDeletePersona = async (personaId: string) => {
