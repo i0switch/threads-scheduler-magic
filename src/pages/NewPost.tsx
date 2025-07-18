@@ -69,7 +69,29 @@ export default function NewPost() {
     
     for (const file of newFiles) {
       try {
-        const fileExt = file.name.split('.').pop()
+        // SECURITY: Validate file type and size
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            title: "エラー",
+            description: "JPG、PNG、GIF、WebP形式の画像のみアップロード可能です",
+            variant: "destructive"
+          })
+          continue
+        }
+
+        // Max file size: 20MB
+        const maxSizeInBytes = 20 * 1024 * 1024
+        if (file.size > maxSizeInBytes) {
+          toast({
+            title: "エラー",
+            description: "ファイルサイズは20MB以下にしてください",
+            variant: "destructive"
+          })
+          continue
+        }
+
+        const fileExt = file.name.split('.').pop()?.toLowerCase()
         const fileName = `${Math.random()}.${fileExt}`
         const filePath = `${user.id}/${fileName}`
 
@@ -285,7 +307,7 @@ export default function NewPost() {
                     <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                       <Input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                         multiple
                         onChange={handleImageUpload}
                         className="hidden"

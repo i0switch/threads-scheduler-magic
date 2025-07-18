@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://*.lovableproject.com, https://localhost:8080, http://localhost:8080',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -25,15 +25,48 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Authentication check - CRITICAL: Verify user is authenticated
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { postId, content, images, accessToken }: PostRequest = await req.json()
 
-    console.log('Received request:', { postId, content: content?.substring(0, 50), hasImages: !!images?.length, hasAccessToken: !!accessToken })
+    console.log('Received request:', { postId, content: content?.substring(0, 50), hasImages: !!images?.length, hasAccessToken: !!accessToken, userId: user.id })
 
     if (!postId || !content || !accessToken) {
       console.error('Missing required fields:', { postId: !!postId, content: !!content, accessToken: !!accessToken })
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verify post ownership - SECURITY: Ensure user owns the post
+    const { data: post, error: postError } = await supabaseClient
+      .from('posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single()
+
+    if (postError || !post || post.user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: 'Post not found or access denied' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -230,23 +263,15 @@ serve(async (req) => {
       // Don't throw error here - post was published successfully
     }
 
-    // Log activity
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '')
-      const { data: { user } } = await supabaseClient.auth.getUser(token)
-      
-      if (user) {
-        await supabaseClient
-          .from('activity_logs')
-          .insert({
-            user_id: user.id,
-            action_type: 'post_published',
-            description: `Post "${content.substring(0, 50)}..." published to Threads`,
-            metadata: { post_id: postId, threads_id: publishResult.id }
-          })
-      }
-    }
+    // Log activity - user is already authenticated at this point
+    await supabaseClient
+      .from('activity_logs')
+      .insert({
+        user_id: user.id,
+        action_type: 'post_published',
+        description: `Post "${content.substring(0, 50)}..." published to Threads`,
+        metadata: { post_id: postId, threads_id: publishResult.id }
+      })
 
     return new Response(
       JSON.stringify({ 
@@ -262,17 +287,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in publish-post function:', error)
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      cause: error.cause
-    })
+    
+    // SECURITY: Don't expose sensitive error details in production
+    const isDevelopment = Deno.env.get('DENO_ENV') === 'development'
+    
+    if (isDevelopment) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      })
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to publish post',
-        details: error.toString(),
-        errorType: error.name || 'UnknownError'
+        error: isDevelopment ? error.message : 'Internal server error',
+        errorType: isDevelopment ? (error.name || 'UnknownError') : 'ServerError'
       }),
       { 
         status: 500, 
