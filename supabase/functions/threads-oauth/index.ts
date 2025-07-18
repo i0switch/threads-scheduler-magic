@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://*.lovableproject.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -42,13 +42,15 @@ serve(async (req) => {
       const errorDescription = url.searchParams.get('error_description')
       console.error('Error description:', errorDescription)
       // Redirect to frontend with error
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${error}&error_description=${encodeURIComponent(errorDescription || '')}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=${error}&error_description=${encodeURIComponent(errorDescription || '')}`, 302)
     }
 
     if (!code || !state) {
       console.error('Missing required URL parameters:', { code: !!code, state: !!state })
       // Redirect to frontend with error
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=missing_parameters`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=missing_parameters`, 302)
     }
 
     const supabaseClient = createClient(
@@ -67,7 +69,8 @@ serve(async (req) => {
 
     if (personaError || !persona) {
       console.error('Persona fetch error:', personaError)
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=persona_not_found`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=persona_not_found`, 302)
     }
 
     console.log(`Found persona: ${persona.name}`)
@@ -87,7 +90,8 @@ serve(async (req) => {
 
     if (!threadsAppId || !threadsAppSecret || !supabaseUrl) {
       console.error('Missing required environment variables for Threads API')
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=missing_env_variables`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=missing_env_variables`, 302)
     }
 
     // Use the correct redirect URI that matches what we sent in the authorization URL
@@ -133,7 +137,8 @@ serve(async (req) => {
         error: tokenData
       })
       const errorMessage = tokenData.error_description || tokenData.error?.message || tokenData.error || 'Failed to exchange authorization code'
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
     }
 
     console.log('Token exchange successful, access token received')
@@ -155,7 +160,8 @@ serve(async (req) => {
         error: userData
       })
       const errorMessage = userData.error?.message || 'Failed to fetch user information'
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=${encodeURIComponent(errorMessage)}&state=${state}`, 302)
     }
 
     console.log(`Successfully fetched user info for @${userData.username}`)
@@ -172,13 +178,15 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Persona update error:', updateError)
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=database_update_failed&state=${state}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=database_update_failed&state=${state}`, 302)
     }
 
     console.log(`Successfully connected persona ${state} to Threads user @${userData.username}`)
 
     // Redirect to accounts page with success message
-    return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/accounts?success=true&message=${encodeURIComponent(`Successfully connected to @${userData.username}`)}&persona_id=${state}`, 302)
+    const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+    return Response.redirect(`${baseUrl}/accounts?success=true&message=${encodeURIComponent(`Successfully connected to @${userData.username}`)}&persona_id=${state}`, 302)
 
   } catch (error) {
     console.error('=== Error in threads-oauth ===')
@@ -190,9 +198,11 @@ serve(async (req) => {
     try {
       const url = new URL(req.url)
       const state = url.searchParams.get('state')
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(error.message)}&state=${state || ''}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=${encodeURIComponent(error.message)}&state=${state || ''}`, 302)
     } catch {
-      return Response.redirect(`https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com/auth/callback?error=${encodeURIComponent(error.message)}`, 302)
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://13e3d28d-3641-439c-a146-3815ef2cdded.lovableproject.com'
+      return Response.redirect(`${baseUrl}/auth/callback?error=${encodeURIComponent(error.message)}`, 302)
     }
   }
 })

@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://*.lovableproject.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -22,6 +22,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Authentication check
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { personaId }: ProfileRequest = await req.json()
 
     if (!personaId) {
@@ -33,11 +52,12 @@ serve(async (req) => {
 
     console.log(`Fetching Threads profile for persona ${personaId}`)
 
-    // Get persona with access token
+    // Get persona with access token and verify ownership
     const { data: persona, error: personaError } = await supabaseClient
       .from('personas')
-      .select('threads_access_token, threads_username')
+      .select('threads_access_token, threads_username, user_id')
       .eq('id', personaId)
+      .eq('user_id', user.id)
       .single()
 
     if (personaError || !persona) {
