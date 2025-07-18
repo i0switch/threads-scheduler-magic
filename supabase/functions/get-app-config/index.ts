@@ -20,8 +20,17 @@ serve(async (req) => {
 
     if (!config.threads_app_id) {
       return new Response(
-        JSON.stringify({ error: 'Threads App ID not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Configuration not available' }),
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'X-XSS-Protection': '1; mode=block'
+          } 
+        }
       )
     }
 
@@ -29,17 +38,35 @@ serve(async (req) => {
       JSON.stringify(config),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block'
+        } 
       }
     )
 
   } catch (error) {
     console.error('Error in get-app-config:', error)
+    
+    // Don't expose sensitive error details in production
+    const isDevelopment = Deno.env.get('DENO_ENV') === 'development'
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: isDevelopment ? error.message : 'Internal server error'
+      }),
       { 
         status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block'
+        } 
       }
     )
   }

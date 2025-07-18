@@ -43,9 +43,10 @@ serve(async (req) => {
 
     const { personaId }: ProfileRequest = await req.json()
 
-    if (!personaId) {
+    // Input validation
+    if (!personaId || typeof personaId !== 'string' || personaId.trim() === '') {
       return new Response(
-        JSON.stringify({ error: 'Missing persona ID' }),
+        JSON.stringify({ error: 'Invalid persona ID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -61,11 +62,17 @@ serve(async (req) => {
       .single()
 
     if (personaError || !persona) {
-      throw new Error('Persona not found')
+      return new Response(
+        JSON.stringify({ error: 'Persona not found or access denied' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     if (!persona.threads_access_token) {
-      throw new Error('Persona not connected to Threads')
+      return new Response(
+        JSON.stringify({ error: 'Persona not connected to Threads' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Fetch profile from Threads API
@@ -77,7 +84,10 @@ serve(async (req) => {
 
     if (!profileResponse.ok || profileData.error) {
       console.error('Profile fetch failed:', profileData)
-      throw new Error('Failed to fetch profile from Threads')
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch profile from Threads' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Update persona with latest profile info
@@ -108,17 +118,35 @@ serve(async (req) => {
       }),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block'
+        }
       }
     )
 
   } catch (error) {
     console.error('Error in get-threads-profile:', error)
+    
+    // Don't expose sensitive error details in production
+    const isDevelopment = Deno.env.get('DENO_ENV') === 'development'
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: isDevelopment ? error.message : 'Internal server error'
+      }),
       { 
         status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block'
+        } 
       }
     )
   }
