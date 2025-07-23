@@ -3,7 +3,6 @@ import { Plus, Calendar, BarChart3, Users, TrendingUp, Clock, CheckCircle, Alert
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Link } from "react-router-dom"
-import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/integrations/supabase/client"
 import { Badge } from "@/components/ui/badge"
 
@@ -25,7 +24,6 @@ interface RecentPost {
 }
 
 const Index = () => {
-  const { user } = useAuth()
   const [stats, setStats] = useState<DashboardStats>({
     totalPosts: 0,
     scheduledPosts: 0,
@@ -37,14 +35,11 @@ const Index = () => {
   const [loading, setLoading] = useState(true)
 
   const fetchDashboardData = async () => {
-    if (!user) return
-    
     try {
       // Fetch posts statistics
       const { data: posts, error: postsError } = await supabase
         .from('posts')
         .select('id, status')
-        .eq('user_id', user.id)
 
       if (postsError) throw postsError
 
@@ -61,7 +56,6 @@ const Index = () => {
       const { data: personas, error: personasError } = await supabase
         .from('personas')
         .select('id')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (personasError) throw personasError
@@ -78,7 +72,6 @@ const Index = () => {
           created_at,
           personas (name)
         `)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5)
 
@@ -94,10 +87,8 @@ const Index = () => {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchDashboardData()
-    }
-  }, [user])
+    fetchDashboardData()
+  }, [])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -121,27 +112,6 @@ const Index = () => {
     })
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-6 animate-fade-in">
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold text-foreground">ThreadsBot</h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              AIペルソナを使ってThreadsへの投稿を自動化しましょう
-            </p>
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Link to="/auth">
-              <Button size="lg" className="bg-gradient-primary hover:opacity-90 hover-scale">
-                ログイン
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-background p-6 animate-fade-in">

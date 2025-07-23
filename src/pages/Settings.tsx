@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Settings as SettingsIcon, Clock, MessageCircle, Bot, Plus, X, Save } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
@@ -38,7 +37,6 @@ interface AutoReply {
 }
 
 export default function Settings() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [personas, setPersonas] = useState<Persona[]>([])
   const [selectedPersona, setSelectedPersona] = useState<string>("")
@@ -52,13 +50,10 @@ export default function Settings() {
   const [newTemplate, setNewTemplate] = useState<string>("")
 
   const fetchPersonas = async () => {
-    if (!user) return
-
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('id, name')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (error) throw error
@@ -120,12 +115,12 @@ export default function Settings() {
   }
 
   const saveSchedulingSettings = async () => {
-    if (!schedulingSettings || !user) return
+    if (!schedulingSettings) return
 
     setSaving(true)
     try {
       const settingsData = {
-        user_id: user.id,
+        user_id: '00000000-0000-0000-0000-000000000000',
         persona_id: selectedPersona,
         optimal_hours: schedulingSettings.optimal_hours,
         auto_schedule_enabled: schedulingSettings.auto_schedule_enabled,
@@ -159,7 +154,7 @@ export default function Settings() {
   }
 
   const addAutoReply = async () => {
-    if (!newKeywords.trim() || !newTemplate.trim() || !user) return
+    if (!newKeywords.trim() || !newTemplate.trim()) return
 
     try {
       const keywords = newKeywords.split(',').map(k => k.trim()).filter(k => k)
@@ -167,7 +162,7 @@ export default function Settings() {
       const { error } = await supabase
         .from('auto_replies')
         .insert({
-          user_id: user.id,
+          user_id: '00000000-0000-0000-0000-000000000000',
           persona_id: selectedPersona,
           trigger_keywords: keywords,
           response_template: newTemplate.trim(),
@@ -240,10 +235,8 @@ export default function Settings() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchPersonas()
-    }
-  }, [user])
+    fetchPersonas()
+  }, [])
 
   useEffect(() => {
     fetchSettings()

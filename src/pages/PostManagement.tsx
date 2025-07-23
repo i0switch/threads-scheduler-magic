@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { EditPostModal } from "@/components/EditPostModal"
 import { Link } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
-import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import {
@@ -40,12 +39,9 @@ export default function PostManagement() {
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
   const { toast } = useToast()
 
   const fetchPosts = async () => {
-    if (!user) return
-    
     try {
       const { data, error } = await supabase
         .from('posts')
@@ -56,7 +52,6 @@ export default function PostManagement() {
             threads_access_token
           )
         `)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -74,13 +69,10 @@ export default function PostManagement() {
   }
 
   const fetchAccounts = async () => {
-    if (!user) return
-    
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('name')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (error) throw error
@@ -92,11 +84,9 @@ export default function PostManagement() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchPosts()
-      fetchAccounts()
-    }
-  }, [user])
+    fetchPosts()
+    fetchAccounts()
+  }, [])
 
   const filteredPosts = selectedAccount === "All Accounts" 
     ? posts 

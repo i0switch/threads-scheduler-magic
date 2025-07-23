@@ -4,7 +4,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, TrendingUp, Heart, MessageCircle, Share, RefreshCw, Calendar } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
@@ -27,7 +26,6 @@ interface Persona {
 }
 
 export default function Analytics() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [selectedPersona, setSelectedPersona] = useState<string>("all")
   const [dateRange, setDateRange] = useState<string>("7")
@@ -37,13 +35,10 @@ export default function Analytics() {
   const [syncing, setSyncing] = useState(false)
 
   const fetchPersonas = async () => {
-    if (!user) return
-
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('id, name')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (error) throw error
@@ -54,8 +49,6 @@ export default function Analytics() {
   }
 
   const fetchAnalytics = async () => {
-    if (!user) return
-
     setLoading(true)
     try {
       const daysAgo = parseInt(dateRange)
@@ -68,7 +61,6 @@ export default function Analytics() {
           *,
           personas (name)
         `)
-        .eq('user_id', user.id)
         .gte('date', startDate.toISOString().split('T')[0])
         .order('date', { ascending: false })
 
@@ -119,14 +111,12 @@ export default function Analytics() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchPersonas()
-    }
-  }, [user])
+    fetchPersonas()
+  }, [])
 
   useEffect(() => {
     fetchAnalytics()
-  }, [user, selectedPersona, dateRange])
+  }, [selectedPersona, dateRange])
 
   // Calculate summary statistics
   const totalPosts = analytics.reduce((sum, day) => sum + day.posts_count, 0)

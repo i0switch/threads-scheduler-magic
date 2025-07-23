@@ -1,7 +1,5 @@
-import { Calendar, PlusCircle, Settings, Archive, LogOut, User } from "lucide-react"
+import { Calendar, PlusCircle, Settings, Archive, User } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
 
 import {
   Sidebar,
@@ -26,17 +24,10 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
-  const { user, signOut } = useAuth()
 
   const isActive = (path: string) => currentPath === path
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted/50"
 
   const collapsed = state === "collapsed"
-
-  const handleSignOut = async () => {
-    await signOut()
-  }
 
   return (
     <Sidebar className="border-r border-border/50 bg-card/30 backdrop-blur-sm">
@@ -87,20 +78,11 @@ export function AppSidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
-                {user?.email || "ユーザー"}
+                ユーザー
               </p>
-              <p className="text-xs text-muted-foreground">ログイン中</p>
+              <p className="text-xs text-muted-foreground">オンライン</p>
             </div>
           </div>
-          <Button
-            onClick={handleSignOut}
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          >
-            <LogOut className="w-4 h-4" />
-            ログアウト
-          </Button>
         </div>
       </SidebarContent>
     </Sidebar>

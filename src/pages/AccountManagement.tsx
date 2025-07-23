@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
-import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -39,17 +38,13 @@ export default function AccountManagement() {
   const [newPersonaUsername, setNewPersonaUsername] = useState("")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const { user } = useAuth()
   const { toast } = useToast()
 
   const fetchPersonas = async () => {
-    if (!user) return
-    
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -67,13 +62,11 @@ export default function AccountManagement() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchPersonas()
-    }
-  }, [user])
+    fetchPersonas()
+  }, [])
 
   const handleCreatePersona = async () => {
-    if (!user || !newPersonaName.trim()) return
+    if (!newPersonaName.trim()) return
     
     setCreating(true)
     
@@ -81,7 +74,7 @@ export default function AccountManagement() {
       const { error } = await supabase
         .from('personas')
         .insert({
-          user_id: user.id,
+          user_id: '00000000-0000-0000-0000-000000000000',
           name: newPersonaName.trim(),
           threads_username: newPersonaUsername.trim() || null,
           is_active: true

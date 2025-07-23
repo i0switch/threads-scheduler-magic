@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { supabase } from "@/integrations/supabase/client"
-import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 
 interface Post {
@@ -45,17 +44,13 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
   const [personas, setPersonas] = useState<Persona[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchingPersonas, setFetchingPersonas] = useState(true)
-  const { user } = useAuth()
   const { toast } = useToast()
 
   const fetchPersonas = async () => {
-    if (!user) return
-    
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('id, name, threads_username')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (error) throw error
@@ -68,10 +63,10 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
   }
 
   useEffect(() => {
-    if (user && isOpen) {
+    if (isOpen) {
       fetchPersonas()
     }
-  }, [user, isOpen])
+  }, [isOpen])
 
   useEffect(() => {
     if (post) {
@@ -92,7 +87,7 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
-    if (!files || !user) return
+    if (!files) return
 
     const newFiles = Array.from(files).slice(0, 4 - images.length)
     
@@ -100,7 +95,7 @@ export function EditPostModal({ post, isOpen, onClose, onSave }: EditPostModalPr
       try {
         const fileExt = file.name.split('.').pop()
         const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${user.id}/${fileName}`
+        const filePath = `uploads/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('persona-avatars')

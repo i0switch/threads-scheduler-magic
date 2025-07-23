@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
-import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 
@@ -27,18 +26,14 @@ export default function NewPost() {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchingPersonas, setFetchingPersonas] = useState(true)
-  const { user } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
 
   const fetchPersonas = async () => {
-    if (!user) return
-    
     try {
       const { data, error } = await supabase
         .from('personas')
         .select('id, name, threads_username')
-        .eq('user_id', user.id)
         .eq('is_active', true)
 
       if (error) throw error
@@ -56,14 +51,12 @@ export default function NewPost() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchPersonas()
-    }
-  }, [user])
+    fetchPersonas()
+  }, [])
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
-    if (!files || !user) return
+    if (!files) return
 
     const newFiles = Array.from(files).slice(0, 4 - images.length)
     
@@ -93,7 +86,7 @@ export default function NewPost() {
 
         const fileExt = file.name.split('.').pop()?.toLowerCase()
         const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${user.id}/${fileName}`
+        const filePath = `uploads/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('post-images')
@@ -123,7 +116,6 @@ export default function NewPost() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
     
     setLoading(true)
     
@@ -161,7 +153,7 @@ export default function NewPost() {
       const { error } = await supabase
         .from('posts')
         .insert({
-          user_id: user.id,
+          user_id: '00000000-0000-0000-0000-000000000000',
           persona_id: selectedPersona || null,
           content: postContent,
           scheduled_for: scheduledDateTime,
