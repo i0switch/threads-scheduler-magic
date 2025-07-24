@@ -40,6 +40,7 @@ const Index = () => {
       const { data: posts, error: postsError } = await supabase
         .from('posts')
         .select('id, status')
+        .eq('app_identifier', 'threads-manager-app-v2')
 
       if (postsError) throw postsError
 
@@ -57,6 +58,7 @@ const Index = () => {
         .from('personas')
         .select('id')
         .eq('is_active', true)
+        .eq('app_identifier', 'threads-manager-app-v2')
 
       if (personasError) throw personasError
       newStats.totalPersonas = personas?.length || 0
@@ -72,6 +74,7 @@ const Index = () => {
           created_at,
           personas (name)
         `)
+        .eq('app_identifier', 'threads-manager-app-v2')
         .order('created_at', { ascending: false })
         .limit(5)
 
