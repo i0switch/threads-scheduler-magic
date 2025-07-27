@@ -36,52 +36,60 @@ const Index = () => {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch posts statistics
-      const { data: posts, error: postsError } = await supabase
-        .from('posts')
-        .select('id, status')
-        .eq('app_identifier', 'threads-manager-app')
-
-      if (postsError) throw postsError
-
-      // Calculate stats
-      const newStats = {
-        totalPosts: posts?.length || 0,
-        scheduledPosts: posts?.filter(p => p.status === 'scheduled').length || 0,
-        publishedPosts: posts?.filter(p => p.status === 'published').length || 0,
-        draftPosts: posts?.filter(p => p.status === 'draft').length || 0,
-        totalPersonas: 0
+      // ハードコードされたダミーデータ
+      const dummyStats = {
+        totalPosts: 8,
+        scheduledPosts: 3,
+        publishedPosts: 2,
+        draftPosts: 3,
+        totalPersonas: 3
       }
 
-      // Fetch personas count
-      const { data: personas, error: personasError } = await supabase
-        .from('personas')
-        .select('id')
-        .eq('is_active', true)
-        .eq('app_identifier', 'threads-manager-app')
+      const dummyRecentPosts = [
+        {
+          id: '55555555-5555-5555-5555-555555555555',
+          content: 'これは最初のテスト投稿です。素晴らしい一日ですね！ #テスト #投稿',
+          status: 'scheduled',
+          scheduled_for: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          personas: { name: 'テストアカウント1' }
+        },
+        {
+          id: '66666666-6666-6666-6666-666666666666',
+          content: 'コーヒーを飲みながらコーディング中☕️ 今日も一日頑張ります！',
+          status: 'draft',
+          scheduled_for: null,
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          personas: { name: 'テストアカウント1' }
+        },
+        {
+          id: '77777777-7777-7777-7777-777777777777',
+          content: '新しいプロジェクトが始まりました！ワクワクしています 🚀',
+          status: 'published',
+          scheduled_for: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          personas: { name: 'テストアカウント2' }
+        },
+        {
+          id: '88888888-8888-8888-8888-888888888888',
+          content: 'お昼休みです🍱 美味しいランチを食べています。午後も頑張ろう！',
+          status: 'scheduled',
+          scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          personas: { name: 'テストアカウント2' }
+        },
+        {
+          id: '99999999-9999-9999-9999-999999999999',
+          content: '週末の計画を立てています。映画を見に行こうかな🎬',
+          status: 'draft',
+          scheduled_for: null,
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          personas: { name: 'テストアカウント3' }
+        }
+      ]
 
-      if (personasError) throw personasError
-      newStats.totalPersonas = personas?.length || 0
-
-      // Fetch recent posts
-      const { data: recentPostsData, error: recentError } = await supabase
-        .from('posts')
-        .select(`
-          id,
-          content,
-          status,
-          scheduled_for,
-          created_at,
-          personas (name)
-        `)
-        .eq('app_identifier', 'threads-manager-app')
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (recentError) throw recentError
-
-      setStats(newStats)
-      setRecentPosts(recentPostsData || [])
+      setStats(dummyStats)
+      setRecentPosts(dummyRecentPosts)
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
