@@ -45,7 +45,7 @@ export default function AccountManagement() {
       const { data, error } = await supabase
         .from('personas')
         .select('*')
-        .eq('app_identifier', 'threads-manager-app-v2')
+        .eq('app_identifier', 'threads-manager-app')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -79,7 +79,7 @@ export default function AccountManagement() {
           name: newPersonaName.trim(),
           threads_username: newPersonaUsername.trim() || null,
           is_active: true,
-          app_identifier: 'threads-manager-app-v2'
+          app_identifier: 'threads-manager-app'
         })
 
       if (error) throw error

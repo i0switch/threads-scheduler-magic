@@ -52,7 +52,7 @@ export default function PostManagement() {
             threads_access_token
           )
         `)
-        .eq('app_identifier', 'threads-manager-app-v2')
+        .eq('app_identifier', 'threads-manager-app')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -75,7 +75,7 @@ export default function PostManagement() {
         .from('personas')
         .select('name')
         .eq('is_active', true)
-        .eq('app_identifier', 'threads-manager-app-v2')
+        .eq('app_identifier', 'threads-manager-app')
 
       if (error) throw error
       const accountNames = ["All Accounts", ...(data?.map(p => p.name) || [])]

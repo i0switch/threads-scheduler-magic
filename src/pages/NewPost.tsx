@@ -35,7 +35,7 @@ export default function NewPost() {
         .from('personas')
         .select('id, name, threads_username')
         .eq('is_active', true)
-        .eq('app_identifier', 'threads-manager-app-v2')
+        .eq('app_identifier', 'threads-manager-app')
 
       if (error) throw error
       setPersonas(data || [])
@@ -160,7 +160,7 @@ export default function NewPost() {
           scheduled_for: scheduledDateTime,
           images: images.length > 0 ? images : null,
           status: publishError ? 'failed' : (shouldPublish && !scheduledDateTime ? 'published' : (scheduledDateTime ? 'scheduled' : 'draft')),
-          app_identifier: 'threads-manager-app-v2'
+          app_identifier: 'threads-manager-app'
         })
 
       if (error) throw error
