@@ -31,14 +31,26 @@ export default function NewPost() {
 
   const fetchPersonas = async () => {
     try {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('id, name, threads_username')
-        .eq('is_active', true)
-        .eq('app_identifier', 'threads-manager-app')
-
-      if (error) throw error
-      setPersonas(data || [])
+      // ハードコードされたダミーデータ
+      const dummyPersonas = [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          name: 'テストアカウント1',
+          threads_username: 'test_user_1'
+        },
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          name: 'テストアカウント2',
+          threads_username: 'test_user_2'
+        },
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          name: 'テストアカウント3',
+          threads_username: 'test_user_3'
+        }
+      ]
+      
+      setPersonas(dummyPersonas)
     } catch (error) {
       console.error('Error fetching personas:', error)
       toast({

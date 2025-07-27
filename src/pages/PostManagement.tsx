@@ -43,20 +43,66 @@ export default function PostManagement() {
 
   const fetchPosts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          personas (
-            name,
-            threads_access_token
-          )
-        `)
-        .eq('app_identifier', 'threads-manager-app')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setPosts(data || [])
+      // ハードコードされたダミーデータ
+      const dummyPosts = [
+        {
+          id: '55555555-5555-5555-5555-555555555555',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          persona_id: '11111111-1111-1111-1111-111111111111',
+          content: 'これは最初のテスト投稿です。素晴らしい一日ですね！ #テスト #投稿',
+          status: 'scheduled',
+          scheduled_for: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          images: null,
+          personas: { name: 'テストアカウント1', threads_access_token: null }
+        },
+        {
+          id: '66666666-6666-6666-6666-666666666666',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          persona_id: '11111111-1111-1111-1111-111111111111',
+          content: 'コーヒーを飲みながらコーディング中☕️ 今日も一日頑張ります！',
+          status: 'draft',
+          scheduled_for: null,
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          images: null,
+          personas: { name: 'テストアカウント1', threads_access_token: null }
+        },
+        {
+          id: '77777777-7777-7777-7777-777777777777',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          persona_id: '33333333-3333-3333-3333-333333333333',
+          content: '新しいプロジェクトが始まりました！ワクワクしています 🚀',
+          status: 'published',
+          scheduled_for: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          images: null,
+          personas: { name: 'テストアカウント2', threads_access_token: 'dummy_token' }
+        },
+        {
+          id: '88888888-8888-8888-8888-888888888888',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          persona_id: '33333333-3333-3333-3333-333333333333',
+          content: 'お昼休みです🍱 美味しいランチを食べています。午後も頑張ろう！',
+          status: 'scheduled',
+          scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          images: null,
+          personas: { name: 'テストアカウント2', threads_access_token: 'dummy_token' }
+        },
+        {
+          id: '99999999-9999-9999-9999-999999999999',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          persona_id: '44444444-4444-4444-4444-444444444444',
+          content: '週末の計画を立てています。映画を見に行こうかな🎬',
+          status: 'draft',
+          scheduled_for: null,
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          images: null,
+          personas: { name: 'テストアカウント3', threads_access_token: null }
+        }
+      ]
+      
+      setPosts(dummyPosts)
     } catch (error) {
       console.error('Error fetching posts:', error)
       toast({
@@ -71,15 +117,14 @@ export default function PostManagement() {
 
   const fetchAccounts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('name')
-        .eq('is_active', true)
-        .eq('app_identifier', 'threads-manager-app')
-
-      if (error) throw error
-      const accountNames = ["All Accounts", ...(data?.map(p => p.name) || [])]
-      setAccounts(accountNames)
+      // ハードコードされたダミーデータ
+      const dummyAccounts = [
+        "All Accounts",
+        "テストアカウント1", 
+        "テストアカウント2", 
+        "テストアカウント3"
+      ]
+      setAccounts(dummyAccounts)
     } catch (error) {
       console.error('Error fetching accounts:', error)
     }

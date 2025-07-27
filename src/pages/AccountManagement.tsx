@@ -42,14 +42,41 @@ export default function AccountManagement() {
 
   const fetchPersonas = async () => {
     try {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('app_identifier', 'threads-manager-app')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setPersonas(data || [])
+      // ハードコードされたダミーデータ
+      const dummyPersonas = [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          name: 'テストアカウント1',
+          threads_username: 'test_user_1',
+          is_active: true,
+          avatar_url: 'https://example.com/avatar1.jpg',
+          created_at: new Date().toISOString(),
+          threads_access_token: null
+        },
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          name: 'テストアカウント2',
+          threads_username: 'test_user_2',
+          is_active: true,
+          avatar_url: 'https://example.com/avatar2.jpg',
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          threads_access_token: 'dummy_token_123'
+        },
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          user_id: '22222222-2222-2222-2222-222222222222',
+          name: 'テストアカウント3',
+          threads_username: 'test_user_3',
+          is_active: false,
+          avatar_url: 'https://example.com/avatar3.jpg',
+          created_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+          threads_access_token: null
+        }
+      ]
+      
+      setPersonas(dummyPersonas)
     } catch (error) {
       console.error('Error fetching personas:', error)
       toast({
